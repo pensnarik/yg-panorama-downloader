@@ -1,0 +1,22 @@
+{
+  "manifest_version": 2,
+  "name": "Google Panorama Data Extractor",
+  "version": "1.0",
+  "description": "Extracts panorama data from Google Maps and sends it to a server.",
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "https://www.google.com/maps/*",
+    "https://streetviewpixels-pa.googleapis.com/*",
+    "http://127.0.0.1:5000/*"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.google.com/maps/*"],
+      "js": ["content.js"]
+    }
+  ]
+}

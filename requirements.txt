@@ -1,0 +1,5 @@
+Pillow
+requests
+numpy
+Flask
+psycopg[binary]

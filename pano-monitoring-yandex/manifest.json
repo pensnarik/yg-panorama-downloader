@@ -1,0 +1,22 @@
+{
+  "manifest_version": 2,
+  "name": "Yandex Panorama Data Extractor",
+  "version": "1.0",
+  "description": "Extracts panorama data from Yandex Maps and sends it to a server.",
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "https://yandex.ru/maps/*",
+    "https://pano.maps.yandex.net/*",
+    "http://127.0.0.1:5000/*"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://yandex.ru/maps/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
