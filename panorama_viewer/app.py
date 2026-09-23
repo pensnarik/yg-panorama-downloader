@@ -7,6 +7,7 @@ from gi.repository import Gtk, Gio, GLib
 from .model import Panorama, PanoramaLibrary
 from .ui import WindowBuilder, FileDialog, ViewerControls
 from .diagnostics import ViewerSmokeTest
+from .globe_ui import GlobeExportController
 
 
 class LibrarySelection:
@@ -58,6 +59,7 @@ class Viewer(Gtk.Application):
         self.connect('activate', self.activate_viewer)
 
     def activate_viewer(self, application):
+        self.globe_export = GlobeExportController(self)
         WindowBuilder(self).build()
         self.controls = ViewerControls(self)
         self.window.present()

@@ -3,3 +3,4 @@ Pillow
 numpy
 PyOpenGL
 PyGObject
+reportlab

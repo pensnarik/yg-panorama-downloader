@@ -34,6 +34,7 @@ class WindowBuilder:
 
     def _view_controls(self, header):
         viewer = self.viewer
+        header.pack_end(self._button('На шар…', None, viewer.globe_export.choose))
         header.pack_end(self._button('Сбросить вид', None, viewer.reset))
         header.pack_end(self._button(None, 'view-fullscreen-symbolic', viewer.fullscreen, 'Полный экран · F11'))
         header.pack_end(self._button(None, 'camera-photo-symbolic', viewer.choose_snapshot, 'Сохранить вид · Ctrl+S'))

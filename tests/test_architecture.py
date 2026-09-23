@@ -44,7 +44,7 @@ class ArchitectureTests(unittest.TestCase):
 
     def test_runtime_dependencies_are_in_shared_requirements(self):
         content = (PythonSources.ROOT / 'requirements.txt').read_text().lower()
-        for dependency in ('pillow', 'requests', 'numpy', 'flask', 'psycopg', 'flask-cors', 'pyopengl', 'pygobject'):
+        for dependency in ('pillow', 'requests', 'numpy', 'flask', 'psycopg', 'flask-cors', 'pyopengl', 'pygobject', 'reportlab'):
             with self.subTest(dependency=dependency):
                 self.assertIn(dependency, content)
 

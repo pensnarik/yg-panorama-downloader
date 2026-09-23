@@ -16,6 +16,10 @@ class ViewerArguments:
         ('--fov', {'type': float, 'help': 'Вертикальный обзор, 15–110°'}),
         ('--gpu-memory', {'type': int, 'default': 768, 'metavar': 'MiB'}),
         ('--render', {'metavar': 'PNG', 'help': 'Сохранить вид без GTK/GPU'}),
+        ('--globe', {'metavar': 'PDF', 'help': 'Развёртка для наклейки на шар, A4, масштаб 1:1'}),
+        ('--globe-diameter', {'type': float, 'default': 100, 'metavar': 'MM'}),
+        ('--globe-gores', {'type': int, 'default': 24, 'metavar': 'N'}),
+        ('--globe-dpi', {'type': int, 'default': 300, 'metavar': 'DPI'}),
         ('--width', {'type': int, 'default': 1000}),
         ('--height', {'type': int, 'default': 700}),
         ('--smoke-test', {'metavar': 'PNG', 'help': argparse.SUPPRESS}),
@@ -30,9 +34,19 @@ class ViewerArguments:
         options = self.parser.parse_args(arguments)
         self._validate_angles(options)
         self._validate_ranges(options)
-        if options.render and not options.source:
-            self.parser.error('Для --render укажите metadata.json или каталог панорамы')
+        self._validate_exports(options)
         return options
+
+    def _validate_exports(self, options):
+        from .globe import GlobeSettings
+        if sum(bool(value) for value in (options.render, options.globe, options.smoke_test)) > 1:
+            self.parser.error('--render, --globe и --smoke-test нельзя использовать вместе')
+        if (options.render or options.globe) and not options.source:
+            self.parser.error('Для экспорта укажите metadata.json или каталог панорамы')
+        try:
+            GlobeSettings(options.globe_diameter, options.globe_gores, options.globe_dpi, options.yaw or 0)
+        except ValueError as error:
+            self.parser.error(str(error))
 
     def _validate_angles(self, options):
         for name in ('yaw', 'pitch', 'fov'):
@@ -61,7 +75,7 @@ class ViewerCommand:
     def run(cls, arguments=None):
         options = ViewerArguments().parse(arguments)
         try:
-            return cls._render(options) if options.render else cls._open_window(options)
+            return cls._dispatch(options)
         except ImportError as error:
             return cls._error(f'Не найдена библиотека: {error}. Зависимости описаны в README.')
         except (OSError, ValueError, KeyError, TypeError) as error:
@@ -71,6 +85,22 @@ class ViewerCommand:
     def _error(message):
         print(message, file=sys.stderr)
         return 1
+
+    @classmethod
+    def _dispatch(cls, options):
+        if options.globe:
+            return cls._globe(options)
+        return cls._render(options) if options.render else cls._open_window(options)
+
+    @staticmethod
+    def _globe(options):
+        from .model import Panorama
+        from .globe import GlobeSettings
+        from .globe_pdf import GlobePdf
+        settings = GlobeSettings(options.globe_diameter, options.globe_gores, options.globe_dpi, options.yaw or 0)
+        path = GlobePdf(Panorama(options.source, options.level), settings).save(options.globe)
+        print(f'Сохранено: {path}. Печатайте в масштабе 100%, без подгонки к странице.')
+        return 0
 
     @classmethod
     def _render(cls, options):

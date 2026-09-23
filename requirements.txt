@@ -8,3 +8,4 @@ flask-cors
 # Viewer: GTK4 system libraries are also required (see README).
 PyOpenGL
 PyGObject
+reportlab
