@@ -7,13 +7,14 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from flask_cors import CORS
+from panorama_metadata import normalize_capture
 
 app = Flask(__name__)
 CORS(app)
 
 # Параметры подключения к базе данных
 DB_CONFIG = {
-    "dbname": "allarchive",
+    "dbname": "panoramas",
     "user": "allarchive",
     "password": "allarchive",
     "host": "localhost",
@@ -38,6 +39,65 @@ def save_panorama_meta(conn, id: int, meta: dict):
         cursor.execute(query, [id, meta])
 
     return True
+
+
+@app.route('/aa/yandex-panorama-metadata', methods=['POST'])
+def yandex_panorama_metadata():
+    try:
+        metadata = normalize_capture(request.get_json(silent=True))
+    except ValueError as error:
+        return jsonify({'status': 'error', 'error': str(error)}), 400
+
+    with psycopg.connect(**DB_CONFIG) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """insert into aa.yandex_panorama_metadata
+                   (image_id, panorama_id, captured_at, metadata)
+                   values (%s, %s, %s, %s)
+                   on conflict (image_id) do update set
+                       panorama_id = excluded.panorama_id,
+                       captured_at = excluded.captured_at,
+                       metadata = excluded.metadata, updated_at = now()
+                   where excluded.captured_at > aa.yandex_panorama_metadata.captured_at
+                   returning image_id""",
+                [metadata['imageId'], metadata['panoramaId'], metadata['capturedAt'], Jsonb(metadata)]
+            )
+            changed = cursor.fetchone()
+            if changed:
+                # The downloader still discovers images through panorama_log.
+                # Coordinates here come from this response, not a changing tab URL.
+                point = metadata.get('position') or {}
+                coordinates = point.get('coordinates') or []
+                lon, lat = (coordinates[:2] if len(coordinates) >= 2 else (None, None))
+                cursor.execute(
+                    """insert into aa.panorama_log
+                       (provider, external_id, lat, lon, unix_timestamp, view_name)
+                       values ('yandex', %s, %s, %s, %s, %s) returning id""",
+                    [metadata['imageId'], lat, lon, metadata['timestamp'], point.get('name')]
+                )
+                log_id = cursor.fetchone()[0]
+                save_panorama_meta(conn, log_id, Jsonb({
+                    'metadata_image_id': metadata['imageId'],
+                    'panorama_id_from_url': metadata['panoramaId'],
+                    'source': 'panorama-response'
+                }))
+
+    return jsonify({'status': 'ok', 'imageId': metadata['imageId'],
+                    'geometryFieldsPresent': metadata['geometryFieldsPresent'],
+                    'missingFields': metadata['missingFields']})
+
+
+@app.route('/aa/yandex-panorama-metadata/<image_id>', methods=['GET'])
+def get_yandex_panorama_metadata(image_id):
+    """Export an offline manifest without calling any Yandex service."""
+    with psycopg.connect(**DB_CONFIG) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute('select metadata from aa.yandex_panorama_metadata where image_id = %s',
+                           [image_id])
+            row = cursor.fetchone()
+    if row is None:
+        return jsonify({'status': 'error', 'error': 'Metadata not found'}), 404
+    return jsonify(row[0])
 
 
 @app.route('/aa/google-panorama', methods=['POST'])
@@ -90,12 +150,12 @@ def yandex_panorama():
             "values (%s, %s, %s, %s, %s, %s, %s, %s) " \
             "returning id"
 
-    lon, lat = data['panoramaPoint'].split(',')
+    point = data.get('panoramaPoint')
+    lon, lat = point.split(',') if point else (None, None)
 
-    if data['panoramaIdFromURL'] is not None:
-        unix_timestamp = data['panoramaIdFromURL'].split('_')[-1]
-    else:
-        unix_timestamp = None
+    url_id = data.get('panoramaIdFromURL')
+    suffix = url_id.split('_')[-1] if url_id else ''
+    unix_timestamp = int(suffix) if suffix.isdigit() else None
 
     if data['year'] == 'unknown':
         year = None
@@ -107,7 +167,13 @@ def yandex_panorama():
     else:
         view = data['view']
 
-    meta = {'panarama_id_from_url': data.get('panoramaIdFromURL')}
+    meta = {
+        'panarama_id_from_url': url_id,  # Retain legacy key for existing consumers.
+        'panorama_id_from_url': url_id,
+        'observed_view': {'direction': data.get('direction'), 'span': data.get('span')},
+        'source': 'tile-request',
+        # DOM/URL context is only an observation, not authoritative image geometry.
+    }
 
     with psycopg.connect(**DB_CONFIG) as conn:
         with conn.cursor() as cursor:

@@ -1,0 +1,5 @@
+# GTK4/PyGObject are best installed with the OS package manager (see README).
+Pillow
+numpy
+PyOpenGL
+PyGObject

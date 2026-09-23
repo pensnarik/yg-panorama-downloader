@@ -1,6 +1,8 @@
 create schema aa;
 
-create sequence 'aa.panorama_log_id_seq' start with 1 increment by 1;
+create sequence aa.panorama_log_id_seq start with 1 increment by 1;
+
+create type aa.panorama_provider as enum ('yandex', 'google');
 
 create table aa.panorama_log
 (

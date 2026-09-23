@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # Параметры подключения к базе данных
 DB_CONFIG = {
-    "dbname": "allarchive",
+    "dbname": "panoramas",
     "user": "allarchive",
     "password": "allarchive",
     "host": "localhost",

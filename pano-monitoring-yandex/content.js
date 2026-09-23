@@ -3,10 +3,18 @@ function extractUrlData() {
   const urlParams = new URLSearchParams(window.location.search);
   const panoramaPoint = urlParams.get('panorama[point]');
   const panoramaIdFromURL = urlParams.get('panorama[id]');
+  const readPair = (name) => {
+    const value = urlParams.get(name);
+    if (!value) return null;
+    const pair = value.split(',').map(Number);
+    return pair.length === 2 && pair.every(Number.isFinite) ? pair : null;
+  };
 
   return {
     panoramaPoint,
-    panoramaIdFromURL
+    panoramaIdFromURL,
+    direction: readPair('panorama[direction]'),
+    span: readPair('panorama[span]')
   };
 }
 

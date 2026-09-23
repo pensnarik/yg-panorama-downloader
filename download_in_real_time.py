@@ -14,7 +14,7 @@ import subprocess
 from psycopg.rows import dict_row
 
 DB_CONFIG = {
-    "dbname": "allarchive",
+    "dbname": "panoramas",
     "user": "allarchive",
     "password": "allarchive",
     "host": "localhost",
