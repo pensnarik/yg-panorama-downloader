@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import json
 import math
 from pathlib import Path
@@ -18,12 +19,19 @@ class ViewerTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         (self.root / '0').mkdir()
-        self.raw = {'status': 'success', 'data': {'Data': {
+        self.raw = self._metadata()
+        self.write_metadata()
+        self._create_tiles()
+
+    @staticmethod
+    def _metadata():
+        return {'status': 'success', 'data': {'Data': {
             'panoramaId': 'synthetic', 'Images': {'imageId': 'test', 'Tiles': {'width': 256, 'height': 256},
             'Zooms': [{'level': 0, 'width': 1024, 'height': 400}]},
             'EquirectangularProjection': {'Origin': [0, 0]},
             'View': {'Direction': [0, 0], 'Span': [90, 60]}}}}
-        self.write_metadata()
+
+    def _create_tiles(self):
         for y in range(2):
             for x in range(4):
                 im = Image.new('RGB', (256, 256 if y == 0 else 144), (x*60, y*80, 40))

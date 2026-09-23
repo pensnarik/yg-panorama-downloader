@@ -1,81 +1,105 @@
-"""Versioned offline metadata, retaining every field of the provider response."""
-
+#!/usr/bin/env python3
+"""Validation and lossless normalization of provider metadata."""
 from datetime import datetime
 import math
 import re
 from urllib.parse import urlsplit
 
 
-def normalize_capture(capture):
-    """Validate identity before allowing a response to update an image's metadata."""
-    if not isinstance(capture, dict) or capture.get('schemaVersion') != 1:
-        raise ValueError('Expected metadata schemaVersion 1')
-    if capture.get('provider') != 'yandex':
-        raise ValueError('Expected provider yandex')
-    raw = capture.get('rawResponse')
-    if not isinstance(raw, dict) or raw.get('status') != 'success':
-        raise ValueError('Expected a successful Yandex response')
-    try:
-        data = raw['data']['Data']
-        images = data['Images']
-        image_id = images['imageId']
-        panorama_id = data['panoramaId']
-        if not isinstance(image_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]+', image_id):
+class GeometryValidator:
+    @staticmethod
+    def positive_integer(value):
+        return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+    @staticmethod
+    def origin(values):
+        return (isinstance(values, list) and len(values) == 2 and all(
+            isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+            for value in values))
+
+    @classmethod
+    def dimensions(cls, values):
+        return isinstance(values, dict) and all(cls.positive_integer(values.get(key)) for key in ('width', 'height'))
+
+    @classmethod
+    def zoom(cls, values):
+        return (cls.dimensions(values) and isinstance(values.get('level'), int)
+                and not isinstance(values['level'], bool) and values['level'] >= 0)
+
+    @classmethod
+    def missing(cls, data):
+        projection, images = data.get('EquirectangularProjection'), data['Images']
+        origin = projection.get('Origin') if isinstance(projection, dict) else None
+        zooms = images.get('Zooms')
+        checks = [('EquirectangularProjection.Origin', cls.origin(origin)),
+                  ('Images.Tiles', cls.dimensions(images.get('Tiles'))),
+                  ('Images.Zooms', isinstance(zooms, list) and bool(zooms) and all(map(cls.zoom, zooms)))]
+        return [name for name, valid in checks if not valid]
+
+
+class CaptureNormalizer:
+    def __init__(self, capture):
+        self.capture = capture
+        self._validate_envelope()
+        self.raw = capture['rawResponse']
+        self.data = self.raw['data']['Data']
+        self.images = self.data['Images']
+        self._validate_identity()
+        self._read_provenance()
+
+    @classmethod
+    def normalize(cls, capture):
+        try:
+            return cls(capture).build()
+        except (KeyError, TypeError, AttributeError) as error:
+            raise ValueError('Incomplete metadata envelope') from error
+
+    def _validate_envelope(self):
+        capture = self.capture
+        if not isinstance(capture, dict) or capture.get('schemaVersion') != 1:
+            raise ValueError('Expected metadata schemaVersion 1')
+        if capture.get('provider') != 'yandex':
+            raise ValueError('Expected provider yandex')
+        raw = capture.get('rawResponse')
+        if not isinstance(raw, dict) or raw.get('status') != 'success':
+            raise ValueError('Expected a successful Yandex response')
+
+    def _validate_identity(self):
+        self.image_id, self.panorama_id = self.images['imageId'], self.data['panoramaId']
+        if not isinstance(self.image_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]+', self.image_id):
             raise ValueError('Invalid imageId')
-        if not isinstance(panorama_id, str) or not panorama_id:
+        if not isinstance(self.panorama_id, str) or not self.panorama_id:
             raise ValueError('Missing panoramaId')
-        if capture.get('imageId') != image_id or capture.get('panoramaId') != panorama_id:
+        if self.capture.get('imageId') != self.image_id or self.capture.get('panoramaId') != self.panorama_id:
             raise ValueError('Capture IDs do not match the provider response')
-        captured_at = datetime.fromisoformat(capture['capturedAt'].replace('Z', '+00:00'))
-        if captured_at.tzinfo is None:
+
+    def _read_provenance(self):
+        self.captured_at = datetime.fromisoformat(self.capture['capturedAt'].replace('Z', '+00:00'))
+        if self.captured_at.tzinfo is None:
             raise ValueError('capturedAt must include a timezone')
-        source = urlsplit(capture['sourceUrl'])
+        source = urlsplit(self.capture['sourceUrl'])
         if (source.scheme != 'https' or source.hostname != 'api-maps.yandex.ru'
                 or not source.path.startswith('/services/panoramas/')):
             raise ValueError('Unexpected metadata source URL')
-    except (KeyError, TypeError, AttributeError) as error:
-        raise ValueError('Incomplete metadata envelope') from error
 
-    # Missing/changed geometry is archived too, but never labelled render-ready.
-    missing = []
-    projection = data.get('EquirectangularProjection')
-    origin = projection.get('Origin') if isinstance(projection, dict) else None
-    if not (isinstance(origin, list) and len(origin) == 2 and all(
-        isinstance(n, (int, float)) and not isinstance(n, bool) and math.isfinite(n)
-        for n in origin
-    )):
-        missing.append('EquirectangularProjection.Origin')
+    def build(self):
+        return self._identity_fields() | self._geometry_fields() | self._view_fields()
 
-    def positive_int(value):
-        return isinstance(value, int) and not isinstance(value, bool) and value > 0
+    def _identity_fields(self):
+        return {'schemaVersion': 1, 'provider': 'yandex', 'imageId': self.image_id,
+                'panoramaId': self.panorama_id, 'capturedAt': self.captured_at.isoformat(),
+                'sourceUrl': self.capture['sourceUrl'], 'rawResponse': self.raw}
 
-    tiles = images.get('Tiles')
-    if not (isinstance(tiles, dict) and all(positive_int(tiles.get(k)) for k in ('width', 'height'))):
-        missing.append('Images.Tiles')
-    zooms = images.get('Zooms')
-    if not (isinstance(zooms, list) and zooms and all(
-        isinstance(z, dict) and all(positive_int(z.get(k)) for k in ('width', 'height'))
-        and isinstance(z.get('level'), int) and not isinstance(z['level'], bool)
-        and z['level'] >= 0 for z in zooms
-    )):
-        missing.append('Images.Zooms')
+    def _geometry_fields(self):
+        missing = GeometryValidator.missing(self.data)
+        return {'geometryFieldsPresent': not missing, 'missingFields': missing,
+                'projection': self.data.get('EquirectangularProjection'), 'images': self.images,
+                'tileUrlTemplate': f'https://pano.maps.yandex.net/{self.image_id}/{{level}}.{{x}}.{{y}}',
+                'localTileTemplate': f'map/{self.image_id}/{{level}}/tile_{{x}}_{{y}}.jpg'}
 
-    return {
-        'schemaVersion': 1,
-        'provider': 'yandex',
-        'imageId': image_id,
-        'panoramaId': panorama_id,
-        'capturedAt': captured_at.isoformat(),
-        'sourceUrl': capture['sourceUrl'],
-        'geometryFieldsPresent': not missing,
-        'missingFields': missing,
-        # Preserve Origin verbatim. Do not guess angularBBox or its conventions.
-        'projection': projection,
-        'images': images,
-        'tileUrlTemplate': f'https://pano.maps.yandex.net/{image_id}/{{level}}.{{x}}.{{y}}',
-        'localTileTemplate': f'map/{image_id}/{{level}}/tile_{{x}}_{{y}}.jpg',
-        'position': data.get('Point'),
-        'timestamp': data.get('timestamp'),
-        'defaultView': data.get('View'),
-        'rawResponse': raw,
-    }
+    def _view_fields(self):
+        return {'position': self.data.get('Point'), 'timestamp': self.data.get('timestamp'),
+                'defaultView': self.data.get('View')}
+
+
+normalize_capture = CaptureNormalizer.normalize

@@ -6,7 +6,7 @@ Yandex & Google panorama downloader
 Запуск из каталога проекта на этой машине (не требует сервера или интернета):
 
 ```bash
-/usr/bin/python3 viewer.py map/Z7lngTdIrFox
+.venv/bin/python viewer.py map/Z7lngTdIrFox
 ```
 
 Без аргумента открывается первая найденная панорама; остальные доступны в списке
@@ -53,14 +53,14 @@ map/<imageId>/0/tile_0_1.jpg
 На видеокарте с небольшим объёмом памяти:
 
 ```bash
-/usr/bin/python3 viewer.py map/Z7lngTdIrFox --gpu-memory 128
+.venv/bin/python viewer.py map/Z7lngTdIrFox --gpu-memory 128
 ```
 
 ### Зависимости просмотрщика
 
 Нужны Python, GTK4, PyGObject, PyOpenGL, Pillow, NumPy и OpenGL 3.3.
-В вашей текущей системе они уже доступны через `/usr/bin/python3`.
-Окружение `.venv`, созданное без системных пакетов, может не видеть GTK.
+Все Python-зависимости перечислены в `requirements.txt`. Запускайте программу
+из виртуального окружения после установки зависимостей.
 
 Для Arch Linux:
 
@@ -74,8 +74,9 @@ sudo pacman -S --needed gtk4 python-gobject python-opengl python-pillow python-n
 sudo apt install python3-gi gir1.2-gtk-4.0 python3-opengl python3-pil python3-numpy
 ```
 
-Список Python-зависимостей также есть в `requirements-viewer.txt`; установка
-PyGObject через pip требует системных библиотек и инструментов сборки.
+Установка PyGObject через pip требует системных библиотек GTK4,
+GObject Introspection и инструментов сборки. `requirements-viewer.txt`
+содержит сокращённый список только для просмотрщика.
 
 ### Снимок без графического интерфейса
 
@@ -115,6 +116,7 @@ CPU-рендер использует Pillow и NumPy, читает только
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+python -m pip install -r requirements.txt
 ```
 
 3. Запустить сервер [monitoring-server](monitoring-server), должен быть запущен
@@ -170,7 +172,7 @@ http://127.0.0.1:5000/aa/google-panorama).
 18944 × 7271 при тайлах 256 × 256. Последнюю строку нельзя растягивать до
 полных 256 пикселей или считать высотой панорамы 29 × 256. Для будущего
 просмотрщика используйте оригинальные тайлы и размеры из манифеста.
-Текущий `merge.py` пока не изменён.
+`merge.py` создаёт плоскую картинку с подписью; для просмотра используйте архив тайлов.
 
 ### Обновление
 
@@ -229,10 +231,28 @@ curl --fail http://127.0.0.1:5000/aa/yandex-panorama-metadata/Z7lngTdIrFox \
 
 ### Тесты
 
+Проверяются геометрия проекции, чтение тайлов, неполные архивы, CPU-рендер и CLI,
+управление камерой, загрузка и отмена страниц атласа, работа с GPU через подмену
+OpenGL, скачивание, склейка и обработка ошибок. Архитектурные тесты проверяют
+shebang, размещение функций в классах, длину методов до 10 строк и зависимости.
+
 ```bash
 node tests/metadata.test.js
 .venv/bin/python -m unittest discover -s tests -p 'test_*.py' -v
 ```
+
+Для отдельной проверки реального GTK/OpenGL нужны графическая сессия и локальный
+архив. Команда проверяет управление, сохраняет снимок и закрывает окно:
+
+```bash
+.venv/bin/python viewer.py map/Z7lngTdIrFox --smoke-test /tmp/panorama-smoke.png
+```
+
+Код просмотрщика разделён на модель архива, чтение тайлов, геометрию проекции,
+камеру, фоновую загрузку, OpenGL и GTK-интерфейс в `panorama_viewer`.
+`panorama_archive` содержит загрузчик и склейку; сервер отделяет нормализацию
+метаданных от SQL в `panorama_metadata.py` и `repository.py`. Корневые скрипты
+сохраняют прежние точки входа.
 
 Фикстура `tests/fixtures/yandex-panorama.json` — публичный ответ для точки
 132.199871,43.357577, полученный 2026-09-23. Тесты проверяют сохранность данных,
