@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 from urllib.parse import quote
-import requests
+from .http import RateLimitedHttp
 
 
 class TileProvider:
@@ -24,9 +24,10 @@ class TileProvider:
 
 
 class TileDownloader:
-    def __init__(self, provider, root=Path('map')):
+    def __init__(self, provider, root=Path('map'), interval=.5):
         self.provider = provider
         self.directory = root / provider.image_id / str(provider.level)
+        self.http = RateLimitedHttp(interval)
 
     def run(self):
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -45,7 +46,7 @@ class TileDownloader:
         target = self.directory / f'tile_{column}_{row}.jpg'
         if target.exists():
             return 200
-        response = requests.get(self.provider.url(column, row), timeout=30)
+        response = self.http.get(self.provider.url(column, row))
         if response.status_code == 200:
             self._save(target, response.content)
         elif response.status_code != self.provider.boundary_status:
@@ -64,7 +65,7 @@ class DownloadCommand:
     def run(cls, provider_name, arguments=None):
         options = cls._parse(provider_name, arguments)
         provider = TileProvider(provider_name, options.image_id, options.level)
-        TileDownloader(provider).run()
+        TileDownloader(provider, interval=options.request_interval).run()
         return 0
 
     @staticmethod
@@ -72,7 +73,16 @@ class DownloadCommand:
         parser = argparse.ArgumentParser(description='Download panorama tiles')
         parser.add_argument('image_id')
         parser.add_argument('level', type=int, choices=TileProvider.RANGES[provider_name])
+        parser.add_argument('--request-interval', type=DownloadCommand._interval, default=.5,
+                            help='Pause between HTTP requests in seconds (default: 0.5)')
         options = parser.parse_args(arguments)
         if Path(options.image_id).name != options.image_id or options.image_id in ('.', '..'):
             parser.error('image_id must be a single directory name')
         return options
+
+    @staticmethod
+    def _interval(value):
+        try:
+            return RateLimitedHttp(float(value)).interval
+        except ValueError as error:
+            raise argparse.ArgumentTypeError(str(error)) from error
