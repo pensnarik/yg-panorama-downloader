@@ -93,6 +93,20 @@ class CatalogDatabaseTests(unittest.TestCase):
         self.assertAlmostEqual(row['latitude'], 43.357577)
         self.assertEqual(row['latest_observation']['view'], 'Wrong place')
 
+    def test_empty_api_name_preserves_address_from_plugin(self):
+        self.metadata['rawResponse']['data']['Data']['Point']['name'] = '   '
+        PanoramaCatalog.observation(self.cursor, 'yandex', {'panoramaId': 'Z7lngTdIrFox', 'view': 'улица Лазо'})
+        PanoramaCatalog.metadata(self.cursor, self.metadata)
+        self.assertEqual(self.record()['title'], 'улица Лазо')
+
+    def test_plugin_fills_missing_address_after_metadata_capture(self):
+        self.metadata['rawResponse']['data']['Data']['Point']['name'] = ''
+        PanoramaCatalog.metadata(self.cursor, self.metadata)
+        PanoramaCatalog.observation(self.cursor, 'yandex', {'panoramaId': 'Z7lngTdIrFox', 'view': 'улица Лазо'})
+        PanoramaCatalog.metadata(self.cursor, self.metadata)
+        PanoramaCatalog.observation(self.cursor, 'yandex', {'panoramaId': 'Z7lngTdIrFox', 'view': ' unknown '})
+        self.assertEqual(self.record()['title'], 'улица Лазо')
+
     def test_month_precision_survives_unknown_or_year_only_observation(self):
         for date in ('July 2025', '2025', 'unknown'):
             PanoramaCatalog.observation(self.cursor, 'google', {'panoramaId': 'sample', 'year': date})

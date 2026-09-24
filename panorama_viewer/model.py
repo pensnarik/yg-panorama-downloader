@@ -6,6 +6,7 @@ import math
 from pathlib import Path
 import re
 from panorama_archive.dates import ShootingDate
+from panorama_archive.titles import CatalogTitles
 
 
 class MetadataValues:
@@ -27,7 +28,15 @@ class MetadataValues:
         data = payload.get('rawResponse', payload).get('data', {}).get('Data')
         if not isinstance(data, dict):
             raise ValueError('В JSON нет rawResponse.data.Data или data.Data')
-        return data
+        return MetadataValues._catalog_title(payload, data)
+
+    @staticmethod
+    def _catalog_title(payload, data):
+        title = CatalogTitles.normalize(payload.get('catalogTitle'))
+        if not title:
+            return data
+        point = data.get('Point') or {}
+        return data | {'Point': point | {'name': title}}
 
 
 @dataclass(frozen=True)
@@ -169,7 +178,7 @@ class PanoramaLibrary:
     def label(path):
         try:
             data = MetadataValues.read(path)
-            return f"{data.get('Point', {}).get('name', path.parent.name)} · {data['Images']['imageId']}"
+            return f"{data.get('Point', {}).get('name') or path.parent.name} · {data['Images']['imageId']}"
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
             return path.parent.name
 

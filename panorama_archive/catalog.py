@@ -4,6 +4,7 @@ import hashlib
 import json
 from psycopg.types.json import Jsonb
 from .records import PanoramaRecord
+from .titles import CatalogTitles
 
 
 class CatalogQueries:
@@ -35,6 +36,12 @@ class CatalogQueries:
 
     @staticmethod
     def _assignment(name, strong):
+        if name == 'title':
+            return CatalogTitles.assignment(strong, CatalogQueries.HAS_METADATA)
+        return CatalogQueries._field_assignment(name, strong)
+
+    @staticmethod
+    def _field_assignment(name, strong):
         if strong:
             return f'{name} = excluded.{name}'
         if name in ('page_date', 'legacy_timestamp'):

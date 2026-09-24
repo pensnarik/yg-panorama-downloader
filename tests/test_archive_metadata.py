@@ -83,3 +83,24 @@ class ArchiveMetadataTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class CatalogTitleExportTests(unittest.TestCase):
+    def test_existing_manifest_receives_title_without_overwriting_raw_response(self):
+        from panorama_viewer.model import MetadataValues
+        with tempfile.TemporaryDirectory() as directory:
+            exporter = MetadataExporter(Path(directory))
+            metadata = {'rawResponse': {'data': {'Data': {'Images': {'imageId': 'sample'}, 'Point': {'name': ''}}}}}
+            exporter._save('sample', metadata)
+            self.assertEqual(exporter._save('sample', metadata | {'catalogTitle': 'улица Лазо'}), 1)
+            path = Path(directory) / 'sample/metadata.json'
+            self.assertEqual(json.loads(path.read_text())['rawResponse'], metadata['rawResponse'])
+            self.assertEqual(MetadataValues.read(path)['Point']['name'], 'улица Лазо')
+
+    def test_missing_database_title_does_not_erase_existing_title(self):
+        with tempfile.TemporaryDirectory() as directory:
+            exporter = MetadataExporter(Path(directory))
+            metadata = {'rawResponse': {'data': {'Data': {'Images': {'imageId': 'sample'}}}}, 'catalogTitle': 'улица Лазо'}
+            exporter._save('sample', metadata)
+            self.assertEqual(exporter._save('sample', metadata | {'catalogTitle': ''}), 0)
+            self.assertEqual(json.loads((Path(directory) / 'sample/metadata.json').read_text())['catalogTitle'], 'улица Лазо')

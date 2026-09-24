@@ -6,6 +6,7 @@ from pathlib import Path
 import psycopg
 from psycopg.rows import dict_row
 from .catalog import PanoramaCatalog
+from .titles import CatalogTitles
 from .merge import ArchiveDatabase
 
 
@@ -34,6 +35,7 @@ class CatalogBackfill:
         cursor.execute(self.LOGS)
         for row in cursor.fetchall():
             PanoramaCatalog.observation(cursor, row['provider'], self._observation(row))
+        CatalogTitles.repair(cursor)
 
     @staticmethod
     def _observation(row):

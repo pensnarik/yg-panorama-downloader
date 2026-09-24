@@ -6,7 +6,7 @@ from .library_sync import LibraryDatabaseSync
 import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gio, GLib
-from .model import Panorama, PanoramaLibrary
+from .model import Panorama, PanoramaLibrary, MetadataValues
 from .ui import WindowBuilder, FileDialog, ViewerControls
 from .diagnostics import ViewerSmokeTest
 from .globe_ui import GlobeExportController
@@ -42,11 +42,26 @@ class LibrarySelection:
             return False
         current = self.viewer.area.panorama
         self.paths = sorted(set(self.paths) | set(PanoramaLibrary.discover(Path(self.viewer.args.library).expanduser().resolve())))
+        self._refresh_title(current)
+        self._select_after_refresh(current)
+        return False
+
+    def _select_after_refresh(self, current):
         selected = self.paths.index(current.path) if current and current.path in self.paths else 0
         self._fill_selector(selected)
         if current is None and self.paths:
             self.viewer.open_path(self.paths[selected])
-        return False
+
+    def _refresh_title(self, panorama):
+        if panorama is None:
+            return
+        try:
+            panorama.title = MetadataValues.read(panorama.path).get('Point', {}).get('name') or panorama.image_id
+            self.viewer.window.set_title(f'{panorama.title} · {panorama.image_id} · офлайн')
+            if hasattr(self.viewer.area, 'layout'):
+                self.viewer.status.set_text(self.viewer.area._progress_text())
+        except (OSError, ValueError, TypeError, KeyError):
+            pass
 
     def _fill_selector(self, selected):
         self.updating = True

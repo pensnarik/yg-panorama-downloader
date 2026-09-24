@@ -7,7 +7,8 @@ from panorama_archive.metadata import MetadataExporter
 
 
 class LibraryDatabaseSync:
-    QUERY = '''select external_id, capture_envelope from aa.panorama_payload
+    QUERY = '''select external_id, capture_envelope || jsonb_build_object('catalogTitle', title)
+        from aa.panorama_payload join aa.panorama using (provider, external_id)
         where provider = 'yandex' and capture_envelope is not null order by external_id'''
 
     def __init__(self, root):

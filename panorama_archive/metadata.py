@@ -7,10 +7,12 @@ import re
 import tempfile
 import psycopg
 from .merge import ArchiveDatabase
+from .titles import CatalogTitles
 
 
 class MetadataExporter:
-    QUERY = '''select external_id, capture_envelope from aa.panorama_payload
+    QUERY = '''select external_id, capture_envelope || jsonb_build_object('catalogTitle', title)
+        from aa.panorama_payload join aa.panorama using (provider, external_id)
         where provider = 'yandex' and external_id = any(%s) and capture_envelope is not null'''
 
     def __init__(self, root=Path('map')):
@@ -40,10 +42,21 @@ class MetadataExporter:
         self._validate(identifier, metadata)
         destination = self.root / identifier / 'metadata.json'
         if destination.exists():
-            return 0
+            return self._update_title(destination, metadata)
         destination.parent.mkdir(parents=True, exist_ok=True)
         self._write(destination, metadata)
         print(f'Saved metadata: {destination}', flush=True)
+        return 1
+
+    def _update_title(self, destination, metadata):
+        title = CatalogTitles.normalize(metadata.get('catalogTitle'))
+        if not title:
+            return 0
+        existing = json.loads(destination.read_text(encoding='utf-8'))
+        self._validate(destination.parent.name, existing)
+        if existing.get('catalogTitle') == title:
+            return 0
+        self._write(destination, existing | {'catalogTitle': title})
         return 1
 
     @classmethod
