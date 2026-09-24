@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Collapsible GTK4 sidebar for panorama metadata."""
+"""Collapsible GTK4 sidebar for panorama metadata and viewer status."""
 import gi
 gi.require_version('Gtk', '4.0')
-from gi.repository import Gtk, Pango
+from gi.repository import Gtk, Pango, Gdk
 
 
 class MetadataPanel:
     def __init__(self, viewer):
         self.viewer = viewer
+        PanelStyle.install()
         self.revealer = Gtk.Revealer(reveal_child=True)
         self.revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_RIGHT)
+        self.revealer.set_transition_duration(180)
         self.revealer.set_child(self._content())
         self.button = Gtk.ToggleButton(icon_name='sidebar-hide-symbolic', active=True)
         self.button.set_tooltip_text('Показать или скрыть сведения о панораме')
@@ -18,30 +20,93 @@ class MetadataPanel:
     def _content(self):
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroll.set_size_request(290, -1)
+        scroll.set_size_request(310, -1)
+        scroll.add_css_class('panorama-sidebar')
+        scroll.set_child(self._blocks())
+        return scroll
+
+    def _blocks(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         for side in ('start', 'end', 'top', 'bottom'):
             getattr(box, 'set_margin_' + side)(16)
-        scroll.set_child(box)
+        self._title(box)
         self._populate(box)
-        return scroll
+        return box
 
     def _populate(self, box):
-        self.viewer.shooting_label = self._section(box, 'Съёмка', 'Дата и время неизвестны')
-        self.viewer.status = self._section(box, 'Панорама', 'Откройте панораму.')
-        self.viewer.view_label = self._section(box, 'Направление', 'Мышь · колесо · стрелки · Home · F11')
+        viewer = self.viewer
+        viewer.shooting_label = self._section(box, 'Съёмка', 'Дата и время неизвестны', 'x-office-calendar-symbolic')
+        viewer.status = self._section(box, 'Панорама', 'Откройте панораму для просмотра.', 'image-x-generic-symbolic')
+        viewer.view_label = self._section(box, 'Направление', 'Азимут · наклон · обзор', 'find-location-symbolic')
+        self._section(box, 'Управление', 'Перетаскивание — поворот\nКолесо — масштаб\nHome — исходный вид\nF11 — полный экран', 'input-mouse-symbolic')
 
     @staticmethod
-    def _section(box, title, text):
-        heading = Gtk.Label(label=title, xalign=0)
-        heading.add_css_class('heading')
-        box.append(heading)
-        label = Gtk.Label(label=text, xalign=0, wrap=True, selectable=True)
+    def _title(box):
+        title = Gtk.Label(label='Панорамы', xalign=0)
+        title.add_css_class('panorama-panel-title')
+        box.append(title)
+        caption = Gtk.Label(label='Сведения и параметры просмотра', xalign=0)
+        caption.add_css_class('dim-label')
+        box.append(caption)
+
+    @classmethod
+    def _section(cls, box, title, text, icon):
+        card = cls.card(box, title, icon)
+        label = cls._label(text)
+        card.append(label)
+        return label
+
+    @classmethod
+    def card(cls, box, title, icon):
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        card.add_css_class('panorama-info-card')
+        card.append(cls._heading(title, icon))
+        box.append(card)
+        return card
+
+    @staticmethod
+    def _heading(title, icon):
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        row.add_css_class('panorama-card-heading')
+        row.append(Gtk.Image.new_from_icon_name(icon))
+        row.append(Gtk.Label(label=title, xalign=0))
+        return row
+
+    @staticmethod
+    def _label(text):
+        label = Gtk.Label(label=text, xalign=0, wrap=True, selectable=False)
         label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
         label.set_max_width_chars(30)
         label.set_width_chars(25)
-        box.append(label)
+        label.add_css_class('panorama-card-value')
         return label
 
     def _toggle(self, button):
         self.revealer.set_reveal_child(button.get_active())
+        self.button.set_icon_name('sidebar-hide-symbolic' if button.get_active() else 'sidebar-show-symbolic')
+
+
+class PanelStyle:
+    CSS = b"""
+    .panorama-sidebar {
+        background-color: @theme_bg_color;
+        border-right: 1px solid alpha(@theme_fg_color, 0.12);
+    }
+    .panorama-panel-title { font-size: 20px; font-weight: 700; margin-top: 4px; }
+    .panorama-info-card {
+        padding: 16px; border-radius: 12px;
+        background-color: alpha(@theme_base_color, 0.65);
+        border: 1px solid alpha(@theme_fg_color, 0.10);
+        box-shadow: 0 2px 4px alpha(black, 0.04);
+    }
+    .panorama-card-heading { color: alpha(@theme_fg_color, 0.65); font-weight: 600; }
+    .panorama-card-heading image { color: @theme_selected_bg_color; }
+    .panorama-card-value { font-size: 13px; }
+    """
+
+    @classmethod
+    def install(cls):
+        provider = Gtk.CssProvider()
+        provider.load_from_data(cls.CSS)
+        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider,
+                                                  Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)

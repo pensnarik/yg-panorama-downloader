@@ -139,8 +139,7 @@ class Viewer(Gtk.Application):
             self.quit()
 
     def update_view(self, yaw, pitch, fov):
-        self.view_label.set_text(f'Азимут {yaw:.1f}° · наклон {pitch:+.1f}° · обзор {fov:.1f}°'
-                                 '     Мышь · колесо · стрелки · Home · F11')
+        self.view_label.set_text(f'Азимут     {yaw:.1f}°\nНаклон     {pitch:+.1f}°\nОбзор       {fov:.1f}°')
 
     def reset(self, *arguments):
         panorama = self.area.panorama

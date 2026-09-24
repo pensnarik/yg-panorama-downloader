@@ -65,6 +65,7 @@ class ViewerSmokeTest:
     def _exercise_sidebar(self):
         panel = self.viewer.metadata_panel
         assert panel.revealer.get_reveal_child(), 'Sidebar should be visible initially'
+        assert not self.viewer.shooting_label.get_selectable(), 'Metadata should not be selectable'
         text = self.viewer.shooting_label.get_text()
         panel.button.set_active(False)
         assert not panel.revealer.get_reveal_child(), 'Sidebar did not hide'
