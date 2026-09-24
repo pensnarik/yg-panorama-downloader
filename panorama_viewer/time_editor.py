@@ -12,8 +12,25 @@ class SkyTimeEditor:
         self.date_button = Gtk.Button(label=self.date)
         self.date_button.connect('clicked', self.choose_date)
         box.append(self.date_button)
+        self._zone_controls(box)
         self._clock(box)
         self.sync()
+
+    def _zone_controls(self, box):
+        box.append(Gtk.Label(label='Часовой пояс · смещение от UTC', xalign=0))
+        self.offsets = list(range(-720, 841, 15))
+        labels = [f'UTC{"+" if value >= 0 else "−"}{abs(value) // 60:02d}:{abs(value) % 60:02d}' for value in self.offsets]
+        self.zone_selector = Gtk.DropDown.new_from_strings(labels)
+        self.zone_selector.set_enable_search(True)
+        self.zone_selector.set_selected(self.offsets.index(self.controller.time.offset_minutes))
+        self.zone_selector.connect('notify::selected', self._zone_changed)
+        box.append(self.zone_selector)
+
+    def _zone_changed(self, selector, specification):
+        self.controller.time.set_offset(self.offsets[selector.get_selected()])
+        self.controller.viewer.shooting_label.set_text('Дата и время · ' + self.controller.time.zone_name)
+        self.controller.time.explanation = 'Часовой пояс изменён; момент времени сохранён'
+        self.controller._show_time()
 
     def _clock(self, box):
         self.time_entry = Gtk.Entry(placeholder_text='ЧЧ:ММ:СС', input_purpose=Gtk.InputPurpose.FREE_FORM)
@@ -58,7 +75,7 @@ class SkyTimeEditor:
             self.controller.change_time(f'{self.date} {clock}')
 
     def choose_date(self, *arguments):
-        dialog = Gtk.Dialog(title='Дата расчёта · UTC', transient_for=self.controller.viewer.window, modal=True)
+        dialog = Gtk.Dialog(title='Дата расчёта · ' + self.controller.time.zone_name, transient_for=self.controller.viewer.window, modal=True)
         dialog.add_button('Отмена', Gtk.ResponseType.CANCEL)
         dialog.add_button('Выбрать', Gtk.ResponseType.OK)
         calendar = Gtk.Calendar()

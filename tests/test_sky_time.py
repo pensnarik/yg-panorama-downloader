@@ -69,3 +69,34 @@ class SkyTimeControllerTests(TestCase):
         before = self.controller.viewer.area.sky_overlay
         self.controller._tick()
         self.assertIs(self.controller.viewer.area.sky_overlay, before)
+
+
+class SkyTimezoneTests(TestCase):
+    def test_changing_zone_preserves_instant_and_changes_calendar_day(self):
+        selection = SkyTime()
+        selection.set_text('2025-09-15 23:30:00')
+        instant = selection.timestamp
+        selection.set_offset(600)
+        self.assertEqual(selection.timestamp, instant)
+        self.assertEqual(selection.text(), '2025-09-16 09:30:00')
+        self.assertEqual(selection.zone_name, 'UTC+10:00')
+
+    def test_local_input_with_fractional_offset_converts_to_utc(self):
+        selection = SkyTime()
+        selection.set_offset(345)
+        selection.set_text('2025-09-15 02:30:00')
+        self.assertEqual(selection.timestamp.isoformat(), '2025-09-14T20:45:00+00:00')
+        self.assertEqual(selection.text(), '2025-09-15 02:30:00')
+
+    def test_metadata_uses_selected_zone_without_changing_source_time(self):
+        selection = SkyTime()
+        selection.set_offset(-210)
+        instant = datetime(2025, 9, 15, 2, 52, 17, tzinfo=timezone.utc)
+        selection.from_metadata(ShootingDate(2025, 9, 15, candidate=instant))
+        self.assertEqual(selection.timestamp, instant)
+        self.assertEqual(selection.text(), '2025-09-14 23:22:17')
+
+    def test_invalid_offsets_are_rejected(self):
+        for offset in (-721, 841, 7, 60.5):
+            with self.subTest(offset=offset), self.assertRaises(ValueError):
+                SkyTime().set_offset(offset)

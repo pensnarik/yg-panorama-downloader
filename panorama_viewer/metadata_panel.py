@@ -90,10 +90,10 @@ class PanelControls:
         self.viewer = viewer
 
     def populate(self, box):
+        self._actions(box)
         MetadataPanel._title(box)
         self._library(MetadataPanel.card(box, 'Библиотека', 'folder-open-symbolic'))
         self.viewer.sky.add_controls(MetadataPanel.card(box, 'Небо и время', 'weather-clear-symbolic'))
-        self._actions(MetadataPanel.card(box, 'Действия', 'applications-graphics-symbolic'))
 
     def _library(self, box):
         self._button(box, 'Открыть…', self.viewer.choose_file)
@@ -122,14 +122,21 @@ class PanelControls:
 
     def _actions(self, box):
         viewer = self.viewer
-        self._button(box, 'Сбросить вид', viewer.reset)
-        self._button(box, 'Полный экран · F11', viewer.fullscreen)
-        self._button(box, 'Сохранить вид…', viewer.choose_snapshot)
-        self._button(box, 'Развёртка на шар…', viewer.globe_export.choose)
+        rows = [Gtk.Box(spacing=6), Gtk.Box(spacing=6)]
+        self._button(rows[0], 'Сброс', viewer.reset, 'view-refresh-symbolic', 'Сбросить вид · Home')
+        self._button(rows[0], 'Экран', viewer.fullscreen, 'view-fullscreen-symbolic', 'Полный экран · F11')
+        self._button(rows[1], 'Снимок', viewer.choose_snapshot, 'camera-photo-symbolic', 'Сохранить вид · Ctrl+S')
+        self._button(rows[1], 'На шар', viewer.globe_export.choose, 'document-print-symbolic', 'Развёртка для печати на шар')
+        for row in rows:
+            box.append(row)
 
     @staticmethod
-    def _button(box, title, callback):
-        button = Gtk.Button(label=title)
+    def _button(box, title, callback, icon='folder-open-symbolic', tooltip=None):
+        button = Gtk.Button(hexpand=True, tooltip_text=tooltip or title)
+        content = Gtk.Box(spacing=6, halign=Gtk.Align.CENTER)
+        content.append(Gtk.Image.new_from_icon_name(icon))
+        content.append(Gtk.Label(label=title))
+        button.set_child(content)
         button.connect('clicked', callback)
         box.append(button)
 

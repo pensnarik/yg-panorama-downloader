@@ -42,6 +42,7 @@ class ViewerSmokeTest:
         self._exercise_controls()
         self._exercise_sky_time()
         self._exercise_time_editor()
+        self._exercise_timezone()
         self._exercise_sidebar()
 
     def _exercise_time_editor(self):
@@ -53,6 +54,14 @@ class ViewerSmokeTest:
         assert sky.editor.slider.get_value() == 5 * 3600 + 30 * 60
         assert 'высота' in sky.label.get_tooltip_text(), 'Missing ephemeris tooltip'
         sky.select_panorama()
+
+    def _exercise_timezone(self):
+        sky = self.viewer.sky
+        before = sky.time.timestamp
+        sky.editor.zone_selector.set_selected(sky.editor.offsets.index(600))
+        assert sky.time.timestamp == before, 'Timezone changed the calculation instant'
+        assert sky.editor.time_entry.get_text() == sky.time.text().split()[1]
+        sky.editor.zone_selector.set_selected(sky.editor.offsets.index(0))
 
     def _exercise_controls(self):
         controls, area = self.viewer.controls, self.viewer.area
