@@ -7,6 +7,7 @@ import time
 import psycopg
 from psycopg.rows import dict_row
 from .merge import ArchiveDatabase
+from .metadata import MetadataExporter
 
 
 class DownloadMonitor:
@@ -17,6 +18,8 @@ class DownloadMonitor:
             print(f'Unknown provider {provider}')
             return
         script, level = self.PROVIDERS[provider]
+        if provider == 'yandex':
+            MetadataExporter().sync([panorama_id])
         self._execute(script, panorama_id, level)
         self._execute('merge.py', panorama_id, level, '--provider', provider)
 
@@ -33,6 +36,7 @@ class DownloadMonitor:
                 return cursor.fetchall()
 
     def monitor(self):
+        MetadataExporter().sync()
         for record in self._records():
             identifier, provider = record['external_id'], record['provider']
             if not (Path('panos') / f'{identifier}.jpg').exists():

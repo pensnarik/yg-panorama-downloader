@@ -202,13 +202,13 @@ class ArchiveComponentTests(unittest.TestCase):
 
     def test_monitor_does_not_merge_after_downloader_failure(self):
         with patch('subprocess.run', side_effect=subprocess.CalledProcessError(1, 'download')) as execute:
-            with self.assertRaises(subprocess.CalledProcessError):
+            with patch('panorama_archive.monitor.MetadataExporter.sync'), self.assertRaises(subprocess.CalledProcessError):
                 DownloadMonitor().download('sample', 'yandex')
         self.assertEqual(execute.call_count, 1)
 
     def test_monitor_passes_arguments_without_shell_interpolation(self):
         identifier = 'sample;echo unwanted'
-        with patch('subprocess.run') as execute:
+        with patch('subprocess.run') as execute, patch('panorama_archive.monitor.MetadataExporter.sync'):
             DownloadMonitor().download(identifier, 'yandex')
         self.assertEqual(execute.call_count, 2)
         self.assertIn(identifier, execute.call_args_list[0].args[0])
