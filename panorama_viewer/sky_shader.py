@@ -26,6 +26,21 @@ class SkyShader:
     uniform vec3 sunDirection, moonDirection, moonLight;
     uniform float sunRadius, moonRadius;
 
+    vec3 locator(vec3 background, vec3 center, float radius) {
+        float depth = dot(center, cameraForward);
+        if (depth <= 0.001) return background;
+        float focal = viewportSize.y / (2.0 * tanHalfFov);
+        vec2 position = viewportSize * 0.5 + focal / depth *
+                        vec2(dot(center, cameraRight), dot(center, cameraUp));
+        float discExtent = focal * tan(asin(radius)) / (depth * depth);
+        float ringRadius = max(24.0, discExtent + 8.0);
+        float distanceToRing = abs(length(gl_FragCoord.xy - position) - ringRadius);
+        float outline = 1.0 - smoothstep(2.0, 3.0, distanceToRing);
+        float red = 1.0 - smoothstep(0.8, 1.8, distanceToRing);
+        vec3 result = mix(background, vec3(0.12, 0.0, 0.0), outline * 0.8);
+        return mix(result, vec3(1.0, 0.04, 0.06), red);
+    }
+
     vec3 disc(vec3 background, vec3 ray, vec3 center, float radius, bool moon) {
         float perpendicular = length(cross(ray, center));
         float forward = dot(ray, center);
@@ -47,6 +62,8 @@ class SkyShader:
         vec3 result = mix(background, vec3(0.2, 0.85, 0.95), horizon * 0.85);
         if (showSun) result = disc(result, ray, sunDirection, sunRadius, false);
         if (showMoon) result = disc(result, ray, moonDirection, moonRadius, true);
+        if (showSun) result = locator(result, sunDirection, sunRadius);
+        if (showMoon) result = locator(result, moonDirection, moonRadius);
         return result;
     }
     '''
