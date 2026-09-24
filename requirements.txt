@@ -9,3 +9,4 @@ flask-cors
 PyOpenGL
 PyGObject
 reportlab
+ephem>=4.2.1,<5

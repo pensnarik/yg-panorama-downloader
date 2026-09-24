@@ -25,6 +25,7 @@ class PanoramaArea(Gtk.GLArea):
         self.upload_source = self.snapshot_path = None
         self.loaded_pages = 0
         self.failed_tiles = set()
+        self.sky_overlay = None
 
     def _configure_widget(self):
         self.set_required_version(3, 3)
@@ -80,6 +81,7 @@ class PanoramaArea(Gtk.GLArea):
         self.queue_render()
 
     def load(self, panorama):
+        self.sky_overlay = None
         self.panorama = panorama
         self.set_view(panorama.default_yaw, panorama.default_pitch, panorama.default_fov)
         if self.renderer:
@@ -138,7 +140,7 @@ class PanoramaArea(Gtk.GLArea):
 
     def _render(self, area, context):
         try:
-            if self.renderer and self.renderer.render(self.panorama, self.camera):
+            if self.renderer and self.renderer.render(self.panorama, self.camera, self.sky_overlay):
                 self._save_snapshot()
             else:
                 GpuRenderer.clear()

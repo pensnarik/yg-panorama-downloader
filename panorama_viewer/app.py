@@ -8,6 +8,7 @@ from .model import Panorama, PanoramaLibrary
 from .ui import WindowBuilder, FileDialog, ViewerControls
 from .diagnostics import ViewerSmokeTest
 from .globe_ui import GlobeExportController
+from .sky_ui import SkyController
 
 
 class LibrarySelection:
@@ -60,6 +61,7 @@ class Viewer(Gtk.Application):
 
     def activate_viewer(self, application):
         self.globe_export = GlobeExportController(self)
+        self.sky = SkyController(self)
         WindowBuilder(self).build()
         self.controls = ViewerControls(self)
         self.window.present()
@@ -67,6 +69,7 @@ class Viewer(Gtk.Application):
 
     def initial_load(self):
         self.library.initialize()
+        self.sky.start()
         if self.args.smoke_test:
             self.diagnostic = ViewerSmokeTest(self)
             self.diagnostic.start()
@@ -74,6 +77,7 @@ class Viewer(Gtk.Application):
 
     def close_viewer(self, *arguments):
         self.area.cancel_loading()
+        self.sky.close()
         return False
 
     def select_panorama(self, selector, specification):
@@ -83,12 +87,16 @@ class Viewer(Gtk.Application):
         try:
             panorama = Panorama(path, self.args.level)
             self.area.load(panorama)
-            self.area.set_view(self.args.yaw, self.args.pitch, self.args.fov)
-            self.library.include(panorama)
-            self.window.set_title(f'{panorama.title} · {panorama.image_id} · офлайн')
-            self.area.grab_focus()
+            self._show_panorama(panorama)
         except Exception as error:
             self.error(str(error))
+
+    def _show_panorama(self, panorama):
+        self.area.set_view(self.args.yaw, self.args.pitch, self.args.fov)
+        self.library.include(panorama)
+        self.window.set_title(f'{panorama.title} · {panorama.image_id} · офлайн')
+        self.sky.refresh()
+        self.area.grab_focus()
 
     def choose_file(self, *arguments):
         FileDialog.open_metadata(self)

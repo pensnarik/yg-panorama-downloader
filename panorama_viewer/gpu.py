@@ -8,6 +8,7 @@ from OpenGL.GL.shaders import compileProgram, compileShader
 from .atlas import AtlasLayout
 from .projection import SphericalProjection
 from .shaders import ShaderSources
+from .sky_shader import SkyUniforms
 
 
 class ShaderProgram:
@@ -132,22 +133,23 @@ class GpuRenderer:
         GL.glClearColor(.065, .086, .114, 1)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT)
 
-    def render(self, panorama, camera):
+    def render(self, panorama, camera, sky=None):
         self.clear()
         if self.atlas is None:
             return False
         _, _, width, height = GL.glGetIntegerv(GL.GL_VIEWPORT)
         if width <= 0 or height <= 0:
             return False
-        self._draw(panorama, camera, int(width), int(height))
+        self._draw(panorama, camera, int(width), int(height), sky)
         return True
 
-    def _draw(self, panorama, camera, width, height):
+    def _draw(self, panorama, camera, width, height, sky):
         self._bind_pipeline()
         self.atlas.bind(self.program)
         self._image_uniforms(width, height)
         self._camera_uniforms(camera)
         self._projection_uniforms(panorama)
+        SkyUniforms.bind(self.program, sky)
         GL.glDrawArrays(GL.GL_TRIANGLES, 0, 3)
         GL.glBindVertexArray(0)
         GL.glUseProgram(0)

@@ -23,6 +23,7 @@ class WindowBuilder:
         self.viewer.window.set_titlebar(header)
         self._open_controls(header)
         self._view_controls(header)
+        self.viewer.sky.add_controls(header)
 
     def _open_controls(self, header):
         viewer = self.viewer
