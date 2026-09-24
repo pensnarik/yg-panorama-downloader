@@ -9,7 +9,7 @@ class MetadataPanel:
     def __init__(self, viewer):
         self.viewer = viewer
         PanelStyle.install()
-        self.revealer = Gtk.Revealer(reveal_child=True)
+        self.revealer = Gtk.Revealer(reveal_child=True, hexpand=False)
         self.revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_RIGHT)
         self.revealer.set_transition_duration(180)
         self.revealer.set_child(self._content())

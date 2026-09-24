@@ -39,11 +39,19 @@ class ViewerSmokeTest:
         return True
 
     def _exercise_widgets(self):
+        self._check_panel_width()
         self._exercise_controls()
         self._exercise_sky_time()
         self._exercise_time_editor()
         self._exercise_timezone()
         self._exercise_sidebar()
+
+    def _check_panel_width(self):
+        panel = self.viewer.metadata_panel.revealer
+        width = panel.get_width()
+        assert 0 < width <= 360, f'Sidebar is too wide: {width}px'
+        assert self.viewer.area.get_width() > width, 'Sidebar occupies most of the window'
+        print(f'GTK sidebar: {width}px, panorama: {self.viewer.area.get_width()}px')
 
     def _exercise_time_editor(self):
         sky = self.viewer.sky
