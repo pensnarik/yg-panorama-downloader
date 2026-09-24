@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Application lifecycle and local library selection."""
 from pathlib import Path
+from threading import Thread
+from .library_sync import LibraryDatabaseSync
 import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gio, GLib
@@ -16,6 +18,7 @@ class LibrarySelection:
         self.viewer = viewer
         self.paths = []
         self.updating = False
+        self.closed = False
 
     def initialize(self):
         source = self.viewer.args.source
@@ -26,6 +29,24 @@ class LibrarySelection:
         self._fill_selector(self.paths.index(path) if path else 0)
         if self.paths:
             self.viewer.open_path(path or self.paths[0])
+
+    def refresh_database(self):
+        Thread(target=self._database_worker, daemon=True, name='panorama-library-sync').start()
+
+    def _database_worker(self):
+        LibraryDatabaseSync(Path(self.viewer.args.library).expanduser().resolve()).refresh()
+        GLib.idle_add(self._database_loaded)
+
+    def _database_loaded(self):
+        if self.closed:
+            return False
+        current = self.viewer.area.panorama
+        self.paths = sorted(set(self.paths) | set(PanoramaLibrary.discover(Path(self.viewer.args.library).expanduser().resolve())))
+        selected = self.paths.index(current.path) if current and current.path in self.paths else 0
+        self._fill_selector(selected)
+        if current is None and self.paths:
+            self.viewer.open_path(self.paths[selected])
+        return False
 
     def _fill_selector(self, selected):
         self.updating = True
@@ -69,6 +90,7 @@ class Viewer(Gtk.Application):
 
     def initial_load(self):
         self.library.initialize()
+        self.library.refresh_database()
         self.sky.start()
         if self.args.smoke_test:
             self.diagnostic = ViewerSmokeTest(self)
@@ -76,6 +98,7 @@ class Viewer(Gtk.Application):
         return False
 
     def close_viewer(self, *arguments):
+        self.library.closed = True
         self.area.cancel_loading()
         self.sky.close()
         return False
