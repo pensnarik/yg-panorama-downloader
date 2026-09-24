@@ -35,7 +35,6 @@ class MetadataPanel:
 
     def _populate(self, box):
         viewer = self.viewer
-        viewer.shooting_label = self._section(box, 'Съёмка', 'Дата и время неизвестны', 'x-office-calendar-symbolic')
         viewer.status = self._section(box, 'Панорама', 'Откройте панораму для просмотра.', 'image-x-generic-symbolic')
         viewer.view_label = self._section(box, 'Направление', 'Азимут · наклон · обзор', 'find-location-symbolic')
         self._section(box, 'Управление', 'Перетаскивание — поворот\nКолесо — масштаб\nHome — исходный вид\nF11 — полный экран', 'input-mouse-symbolic')

@@ -4,6 +4,7 @@ import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, GLib
 from .sky_time import SkyTime
+from .time_editor import SkyTimeEditor
 
 
 class SkyController:
@@ -17,25 +18,21 @@ class SkyController:
         self._populate(box)
 
     def _populate(self, box):
-        self.sun = self._toggle(box, 'Солнце')
-        self.moon = self._toggle(box, 'Луна')
-        self._time_controls(box)
-        self.label = Gtk.Label(label='Выбранное время · реальный угловой размер\n'
-                               'Горизонт 0° виден вместе со светилами.\n'
-                               'Наложение видно сквозь здания и ниже горизонта.', xalign=0)
-        self.label.set_wrap(True)
-        self.label.set_max_width_chars(30)
-        box.append(self.label)
-
-    def _time_controls(self, box):
-        box.append(Gtk.Label(label='Дата и время расчёта (UTC)', xalign=0))
-        self.time_entry = Gtk.Entry(text=self.time.text(), placeholder_text='ГГГГ-ММ-ДД ЧЧ:ММ:СС')
-        self.time_entry.set_tooltip_text('ГГГГ-ММ-ДД ЧЧ:ММ:СС, UTC. Пересчёт при вводе корректной даты.')
-        self.time_entry.connect('changed', self._time_changed)
-        box.append(self.time_entry)
+        self.viewer.shooting_label = Gtk.Label(label='Дата и время · UTC', xalign=0)
+        box.append(self.viewer.shooting_label)
+        self.editor = SkyTimeEditor(self, box)
         self.time_hint = Gtk.Label(xalign=0, wrap=True, max_width_chars=30)
         box.append(self.time_hint)
         self._time_buttons(box)
+        self.sun = self._toggle(box, 'Солнце')
+        self.moon = self._toggle(box, 'Луна')
+        self._details(box)
+
+    def _details(self, box):
+        self.label = Gtk.Label(label='ⓘ Расчётные данные', xalign=0)
+        self.label.add_css_class('dim-label')
+        self.label.set_tooltip_text('Включите Солнце или Луну, чтобы посмотреть расчётные данные.')
+        box.append(self.label)
 
     def _time_buttons(self, box):
         for title, callback in (('Из метаданных', self.select_panorama), ('Сейчас', self._now)):
@@ -50,32 +47,40 @@ class SkyController:
             self._show_time()
 
     def _show_time(self):
-        explanation = self.time.explanation
-        self.time_entry.set_text(self.time.text())
-        self.time.explanation = explanation
-        self.time_hint.set_text(explanation)
+        self.time_valid = True
+        self.editor.sync()
+        self.time_hint.set_text(self.time.explanation)
         self.refresh()
 
     def _now(self, *arguments):
-        self.time = SkyTime()
+        self.time.timestamp = None
         self._show_time()
         self.time.timestamp = None
-        self.time_hint.set_text('Текущее время; обновление раз в минуту')
+        self.time.explanation = 'Текущее время; обновление раз в минуту'
+        self.time_hint.set_text(self.time.explanation)
         self.refresh()
 
     def _time_changed(self, entry):
+        self.change_time(entry.get_text())
+
+    def change_time(self, text):
         try:
-            self.time.set_text(entry.get_text())
+            self.time.set_text(text)
             self.time_valid = True
         except ValueError:
             self._invalid_time()
             return
+        self._sync_time()
+
+    def _sync_time(self):
+        if hasattr(self, 'editor'):
+            self.editor.sync()
         self.time_hint.set_text(self.time.explanation)
         self.refresh()
 
     def _invalid_time(self):
         self.time_valid = False
-        self.time_hint.set_text('Введите дату и время: ГГГГ-ММ-ДД ЧЧ:ММ:СС (UTC)')
+        self.time_hint.set_text('Введите время от 00:00:00 до 23:59:59 в выбранном поясе')
         self.viewer.area.sky_overlay = None
         self.viewer.area.queue_render()
 
@@ -95,11 +100,15 @@ class SkyController:
 
     def _tick(self):
         if self.time.timestamp is None and (self.sun.get_active() or self.moon.get_active()):
+            if hasattr(self, 'editor'):
+                self.editor.sync()
             self.refresh()
         return True
 
     def refresh(self, *arguments):
         self.viewer.area.sky_overlay = None
+        self.label.set_text('ⓘ Расчётные данные')
+        self.label.set_tooltip_text('Включите Солнце или Луну для расчёта.')
         try:
             if self.time_valid and (self.sun.get_active() or self.moon.get_active()):
                 self._calculate()
@@ -114,7 +123,7 @@ class SkyController:
             raise ValueError('Сначала откройте панораму')
         snapshot = Ephemeris.calculate(ObserverLocation.from_panorama(panorama), self.time.timestamp)
         self.viewer.area.sky_overlay = SkyOverlay(snapshot, self.sun.get_active(), self.moon.get_active())
-        self.label.set_text(self._description(snapshot))
+        self.label.set_tooltip_text(self._description(snapshot))
 
     @staticmethod
     def _description(snapshot):

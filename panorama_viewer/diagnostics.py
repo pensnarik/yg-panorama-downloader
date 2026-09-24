@@ -31,14 +31,28 @@ class ViewerSmokeTest:
 
     def _step(self):
         if not self.capturing:
-            self._exercise_controls()
-            self._exercise_sky_time()
-            self._exercise_sidebar()
+            self._exercise_widgets()
             self._capture()
         elif self.viewer.area.snapshot_path is None:
             self._finish()
             return False
         return True
+
+    def _exercise_widgets(self):
+        self._exercise_controls()
+        self._exercise_sky_time()
+        self._exercise_time_editor()
+        self._exercise_sidebar()
+
+    def _exercise_time_editor(self):
+        sky = self.viewer.sky
+        sky.editor.slider.set_value(13 * 3600 + 15 * 60)
+        assert sky.editor.time_entry.get_text() == '13:15:00', 'Slider did not update time'
+        assert sky.viewer.area.sky_overlay.snapshot.timestamp.hour == 13
+        sky.editor.time_entry.set_text('05:30')
+        assert sky.editor.slider.get_value() == 5 * 3600 + 30 * 60
+        assert 'высота' in sky.label.get_tooltip_text(), 'Missing ephemeris tooltip'
+        sky.select_panorama()
 
     def _exercise_controls(self):
         controls, area = self.viewer.controls, self.viewer.area
@@ -55,9 +69,9 @@ class ViewerSmokeTest:
         sky = self.viewer.sky
         sky.sun.set_active(True)
         sky.moon.set_active(True)
-        sky.time_entry.set_text('2025-09-15 02:52:22')
+        sky.change_time('2025-09-15 02:52:22')
         before = self.viewer.area.sky_overlay.snapshot
-        sky.time_entry.set_text('2025-09-15 08:52:22')
+        sky.editor.time_entry.set_text('08:52:22')
         after = self.viewer.area.sky_overlay.snapshot
         assert before.sun.azimuth != after.sun.azimuth and before.moon.azimuth != after.moon.azimuth
         sky.select_panorama()
