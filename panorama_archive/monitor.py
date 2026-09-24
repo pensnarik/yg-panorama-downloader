@@ -55,7 +55,7 @@ class DownloadMonitor:
     @staticmethod
     def _report_failure(error):
         details = getattr(error, 'stderr', None) or ''
-        match = re.search(r'^RuntimeError: (\[поток \d+ \| прокси [^\]\r\n]+\] .+)$', details, re.MULTILINE)
+        match = re.search(r'^(?:RuntimeError: )?(\[поток \d+ \| прокси [^\]\r\n]+\] .+)$', details, re.MULTILINE)
         if match:
             print(match[1], flush=True)
         else:

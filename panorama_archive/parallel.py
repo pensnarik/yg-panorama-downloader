@@ -5,6 +5,7 @@ from copy import copy
 from queue import Queue, Empty
 from threading import Event, Lock
 from .http import RateLimitedHttp
+from .errors import ProxyDownloadError, ProxyErrorMessage
 
 from .logging import DownloadLog
 
@@ -41,7 +42,7 @@ class ProxyDownloadPool:
     def _failure(self, error):
         with self.failure_lock:
             if self.failure is None:
-                self.failure = RuntimeError(DownloadLog.format(f'Загрузка остановлена ({type(error).__name__})'))
+                self.failure = ProxyDownloadError(DownloadLog.format(ProxyErrorMessage.describe(error)))
             self.stopped.set()
             return self.failure
 

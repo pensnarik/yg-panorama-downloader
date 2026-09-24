@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Provider-aware tile download with resumable local files."""
 import argparse
+import sys
+from .errors import ProxyDownloadError, TileHttpError
 from pathlib import Path
 from urllib.parse import quote
 from threading import Lock
@@ -88,7 +90,7 @@ class TileDownloader:
         if response.status_code == 200:
             self._save(target, response.content)
         elif response.status_code != self.provider.boundary_status:
-            raise RuntimeError(f'Could not download {response.url}: HTTP {response.status_code}')
+            raise TileHttpError(response.status_code)
         return response.status_code
 
     @staticmethod
@@ -101,6 +103,14 @@ class TileDownloader:
 class DownloadCommand:
     @classmethod
     def run(cls, provider_name, arguments=None):
+        try:
+            return cls._run(provider_name, arguments)
+        except ProxyDownloadError as error:
+            print(str(error), file=sys.stderr, flush=True)
+            return 1
+
+    @classmethod
+    def _run(cls, provider_name, arguments=None):
         options = cls._parse(provider_name, arguments)
         provider = TileProvider(provider_name, options.image_id, options.level)
         TileDownloader(provider, interval=options.request_interval, proxies=ProxyList.read(options.proxies_file)).run()
