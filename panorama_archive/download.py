@@ -7,6 +7,7 @@ from threading import Lock
 from .proxies import ProxyList
 from .http import RateLimitedHttp
 
+from .logging import DownloadLog
 
 class TileProvider:
     RANGES = {'yandex': {0: (74, 29), 1: (28, 14)}, 'google': {4: (10, 10), 5: (26, 13)}}
@@ -39,12 +40,12 @@ class DownloadProgress:
         self.cached += int(status == 200 and cached)
         self.downloaded += int(status == 200 and not cached)
         outcome = 'уже на диске' if cached else 'сохранён' if status == 200 else f'граница HTTP {status}'
-        print(f'{self.provider.image_id}: столбец {column + 1}/{self.provider.columns}, '
+        DownloadLog.write(f'{self.provider.image_id}: столбец {column + 1}/{self.provider.columns}, '
               f'тайл ({column}, {row}) — {outcome}; '
               f'скачано {self.downloaded}, пропущено {self.cached}', flush=True)
 
     def finish(self):
-        print(f'{self.provider.image_id}: скачивание завершено; скачано {self.downloaded}, '
+        DownloadLog.write(f'{self.provider.image_id}: скачивание завершено; скачано {self.downloaded}, '
               f'уже на диске {self.cached}', flush=True)
 
 
@@ -58,7 +59,7 @@ class TileDownloader:
 
     def run(self):
         self.directory.mkdir(parents=True, exist_ok=True)
-        print(f'Downloading {self.provider.image_id}', flush=True)
+        DownloadLog.write(f'Downloading {self.provider.image_id}', flush=True)
         self._download_all()
         self.progress.finish()
 

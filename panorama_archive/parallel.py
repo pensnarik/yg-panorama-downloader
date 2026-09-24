@@ -6,6 +6,7 @@ from queue import Queue, Empty
 from threading import Event
 from .http import RateLimitedHttp
 
+from .logging import DownloadLog
 
 class ProxyDownloadPool:
     def __init__(self, downloader, proxies, interval):
@@ -16,7 +17,7 @@ class ProxyDownloadPool:
             self.columns.put(column)
 
     def run(self):
-        print(f'Загрузка через SOCKS: {len(self.proxies)} потоков', flush=True)
+        DownloadLog.write(f'Загрузка через SOCKS: {len(self.proxies)} потоков', flush=True)
         executor = ThreadPoolExecutor(max_workers=len(self.proxies))
         try:
             futures = [executor.submit(self._worker, proxy, number) for number, proxy in enumerate(self.proxies, 1)]
@@ -27,12 +28,13 @@ class ProxyDownloadPool:
             executor.shutdown(wait=True, cancel_futures=True)
 
     def _worker(self, proxy, number):
+        DownloadLog.identify(number, proxy)
         http = RateLimitedHttp(self.interval, proxy=proxy, stopped=self.stopped)
         try:
             self._consume(http)
         except Exception as error:
             self.stopped.set()
-            raise RuntimeError(f'Поток прокси {number}: загрузка остановлена ({type(error).__name__})') from None
+            raise RuntimeError(DownloadLog.format(f'Загрузка остановлена ({type(error).__name__})')) from None
         finally:
             http.close()
 

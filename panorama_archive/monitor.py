@@ -8,6 +8,7 @@ import psycopg
 from psycopg.rows import dict_row
 from .merge import ArchiveDatabase
 from .metadata import MetadataExporter
+from .logging import DownloadLog
 
 
 class DownloadMonitor:
@@ -15,7 +16,7 @@ class DownloadMonitor:
 
     def download(self, panorama_id, provider):
         if provider not in self.PROVIDERS:
-            print(f'Unknown provider {provider}', flush=True)
+            DownloadLog.write(f'Unknown provider {provider}', flush=True)
             return
         script, level = self.PROVIDERS[provider]
         if provider == 'yandex':
@@ -24,9 +25,9 @@ class DownloadMonitor:
         self._merge(panorama_id, provider, level)
 
     def _merge(self, panorama_id, provider, level):
-        print(f'{panorama_id}: склейка панорамы…', flush=True)
+        DownloadLog.write(f'{panorama_id}: склейка панорамы…', flush=True)
         self._execute('merge.py', panorama_id, level, '--provider', provider)
-        print(f'{panorama_id}: готово', flush=True)
+        DownloadLog.write(f'{panorama_id}: готово', flush=True)
 
     @staticmethod
     def _execute(script, *arguments):
@@ -45,16 +46,16 @@ class DownloadMonitor:
         for record in self._records():
             identifier, provider = record['external_id'], record['provider']
             if not (Path('panos') / f'{identifier}.jpg').exists():
-                print(f'Starting to download {identifier}', flush=True)
+                DownloadLog.write(f'Starting to download {identifier}', flush=True)
                 self.download(identifier, provider)
                 return
-        print('Новых панорам нет. Следующая проверка через 10 секунд.', flush=True)
+        DownloadLog.write('Новых панорам нет. Следующая проверка через 10 секунд.', flush=True)
 
     def run(self):
-        print('Монитор скачивания запущен. Проверка каталога каждые 10 секунд.', flush=True)
+        DownloadLog.write('Монитор скачивания запущен. Проверка каталога каждые 10 секунд.', flush=True)
         while True:
             try:
                 self.monitor()
             except (subprocess.CalledProcessError, psycopg.Error) as error:
-                print(f'Download failed: {error}', flush=True)
+                DownloadLog.write(f'Download failed: {error}', flush=True)
             time.sleep(10)

@@ -6,6 +6,7 @@ import math
 import time
 import requests
 
+from .logging import DownloadLog
 
 class RetryAfter:
     @classmethod
@@ -88,4 +89,4 @@ class RateLimitedHttp:
         delay = max(backoff, RetryAfter.seconds(response.headers.get('Retry-After')))
         response.close()
         self.pacer.defer(delay)
-        print(f'HTTP 429: waiting at least {delay:g} seconds before retrying {url}. Ctrl+C to stop.', flush=True)
+        DownloadLog.write(f'HTTP 429: waiting at least {delay:g} seconds before retrying {url}. Ctrl+C to stop.', flush=True)
