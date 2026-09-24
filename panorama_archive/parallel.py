@@ -3,7 +3,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from copy import copy
 from queue import Queue, Empty
-from threading import Event
+from threading import Event, Lock
 from .http import RateLimitedHttp
 
 from .logging import DownloadLog
@@ -12,6 +12,7 @@ class ProxyDownloadPool:
     def __init__(self, downloader, proxies, interval):
         self.downloader, self.proxies, self.interval = downloader, proxies, interval
         self.stopped = Event()
+        self.failure, self.failure_lock = None, Lock()
         self.columns = Queue()
         for column in range(downloader.provider.columns):
             self.columns.put(column)
@@ -33,10 +34,16 @@ class ProxyDownloadPool:
         try:
             self._consume(http)
         except Exception as error:
-            self.stopped.set()
-            raise RuntimeError(DownloadLog.format(f'Загрузка остановлена ({type(error).__name__})')) from None
+            raise self._failure(error) from None
         finally:
             http.close()
+
+    def _failure(self, error):
+        with self.failure_lock:
+            if self.failure is None:
+                self.failure = RuntimeError(DownloadLog.format(f'Загрузка остановлена ({type(error).__name__})'))
+            self.stopped.set()
+            return self.failure
 
     def _consume(self, http):
         worker = copy(self.downloader)

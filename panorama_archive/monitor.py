@@ -4,12 +4,13 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+import re
 import psycopg
 from psycopg.rows import dict_row
 from .merge import ArchiveDatabase
 from .metadata import MetadataExporter
-from .logging import DownloadLog
 
+from .logging import DownloadLog
 
 class DownloadMonitor:
     PROVIDERS = {'google': ('pano-google.py', 5), 'yandex': ('pano.py', 0)}
@@ -32,7 +33,7 @@ class DownloadMonitor:
     @staticmethod
     def _execute(script, *arguments):
         path = Path(__file__).resolve().parents[1] / script
-        subprocess.run([sys.executable, str(path), *map(str, arguments)], check=True)
+        subprocess.run([sys.executable, str(path), *map(str, arguments)], check=True, stderr=subprocess.PIPE, text=True)
 
     @staticmethod
     def _records():
@@ -51,11 +52,22 @@ class DownloadMonitor:
                 return
         DownloadLog.write('Новых панорам нет. Следующая проверка через 10 секунд.', flush=True)
 
+    @staticmethod
+    def _report_failure(error):
+        details = getattr(error, 'stderr', None) or ''
+        match = re.search(r'^RuntimeError: (\[поток \d+ \| прокси [^\]\r\n]+\] .+)$', details, re.MULTILINE)
+        if match:
+            print(match[1], flush=True)
+        else:
+            DownloadLog.write(f'Download failed: {error}')
+            if details.strip():
+                DownloadLog.write(details.strip().splitlines()[-1])
+
     def run(self):
         DownloadLog.write('Монитор скачивания запущен. Проверка каталога каждые 10 секунд.', flush=True)
         while True:
             try:
                 self.monitor()
             except (subprocess.CalledProcessError, psycopg.Error) as error:
-                DownloadLog.write(f'Download failed: {error}', flush=True)
+                self._report_failure(error)
             time.sleep(10)
