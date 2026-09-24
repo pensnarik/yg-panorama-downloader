@@ -29,7 +29,7 @@ class MetadataPanel:
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         for side in ('start', 'end', 'top', 'bottom'):
             getattr(box, 'set_margin_' + side)(16)
-        self._title(box)
+        PanelControls(self.viewer).populate(box)
         self._populate(box)
         return box
 
@@ -84,6 +84,55 @@ class MetadataPanel:
     def _toggle(self, button):
         self.revealer.set_reveal_child(button.get_active())
         self.button.set_icon_name('sidebar-hide-symbolic' if button.get_active() else 'sidebar-show-symbolic')
+
+
+class PanelControls:
+    def __init__(self, viewer):
+        self.viewer = viewer
+
+    def populate(self, box):
+        MetadataPanel._title(box)
+        self._library(MetadataPanel.card(box, 'Библиотека', 'folder-open-symbolic'))
+        self.viewer.sky.add_controls(MetadataPanel.card(box, 'Небо и время', 'weather-clear-symbolic'))
+        self._actions(MetadataPanel.card(box, 'Действия', 'applications-graphics-symbolic'))
+
+    def _library(self, box):
+        self._button(box, 'Открыть…', self.viewer.choose_file)
+        selector = Gtk.DropDown.new_from_strings([])
+        selector.set_enable_search(True)
+        factory = Gtk.SignalListItemFactory()
+        factory.connect('setup', self._setup_item)
+        factory.connect('bind', self._bind_item)
+        selector.set_factory(factory)
+        self._connect_selector(selector)
+        box.append(selector)
+
+    def _connect_selector(self, selector):
+        selector.connect('notify::selected', self.viewer.select_panorama)
+        self.viewer.selector = selector
+
+    @staticmethod
+    def _setup_item(factory, item):
+        item.set_child(Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END, max_width_chars=24))
+
+    @staticmethod
+    def _bind_item(factory, item):
+        text = item.get_item().get_string()
+        item.get_child().set_text(text)
+        item.get_child().set_tooltip_text(text)
+
+    def _actions(self, box):
+        viewer = self.viewer
+        self._button(box, 'Сбросить вид', viewer.reset)
+        self._button(box, 'Полный экран · F11', viewer.fullscreen)
+        self._button(box, 'Сохранить вид…', viewer.choose_snapshot)
+        self._button(box, 'Развёртка на шар…', viewer.globe_export.choose)
+
+    @staticmethod
+    def _button(box, title, callback):
+        button = Gtk.Button(label=title)
+        button.connect('clicked', callback)
+        box.append(button)
 
 
 class PanelStyle:

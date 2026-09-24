@@ -13,23 +13,8 @@ class SkyController:
         self.time = SkyTime()
         self.time_valid = True
 
-    def add_controls(self, header):
-        button = Gtk.MenuButton(label='Небо')
-        popover = Gtk.Popover()
-        box = self._box()
-        popover.set_child(box)
-        button.set_popover(popover)
-        header.pack_end(button)
+    def add_controls(self, box):
         self._populate(box)
-
-    @staticmethod
-    def _box():
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        box.set_margin_start(14)
-        box.set_margin_end(14)
-        box.set_margin_top(14)
-        box.set_margin_bottom(14)
-        return box
 
     def _populate(self, box):
         self.sun = self._toggle(box, 'Солнце')
@@ -39,7 +24,7 @@ class SkyController:
                                'Горизонт 0° виден вместе со светилами.\n'
                                'Наложение видно сквозь здания и ниже горизонта.', xalign=0)
         self.label.set_wrap(True)
-        self.label.set_max_width_chars(55)
+        self.label.set_max_width_chars(30)
         box.append(self.label)
 
     def _time_controls(self, box):
@@ -48,7 +33,7 @@ class SkyController:
         self.time_entry.set_tooltip_text('ГГГГ-ММ-ДД ЧЧ:ММ:СС, UTC. Пересчёт при вводе корректной даты.')
         self.time_entry.connect('changed', self._time_changed)
         box.append(self.time_entry)
-        self.time_hint = Gtk.Label(xalign=0, wrap=True)
+        self.time_hint = Gtk.Label(xalign=0, wrap=True, max_width_chars=30)
         box.append(self.time_hint)
         self._time_buttons(box)
 

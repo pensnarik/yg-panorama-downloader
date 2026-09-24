@@ -24,32 +24,6 @@ class WindowBuilder:
         header = Gtk.HeaderBar()
         self.viewer.window.set_titlebar(header)
         header.pack_start(self.viewer.metadata_panel.button)
-        self._open_controls(header)
-        self._view_controls(header)
-        self.viewer.sky.add_controls(header)
-
-    def _open_controls(self, header):
-        viewer = self.viewer
-        header.pack_start(self._button('Открыть…', None, viewer.choose_file))
-        viewer.selector = Gtk.DropDown.new_from_strings([])
-        viewer.selector.set_tooltip_text('Локальные панорамы с metadata.json')
-        viewer.selector.connect('notify::selected', viewer.select_panorama)
-        header.pack_start(viewer.selector)
-
-    def _view_controls(self, header):
-        viewer = self.viewer
-        header.pack_end(self._button('На шар…', None, viewer.globe_export.choose))
-        header.pack_end(self._button('Сбросить вид', None, viewer.reset))
-        header.pack_end(self._button(None, 'view-fullscreen-symbolic', viewer.fullscreen, 'Полный экран · F11'))
-        header.pack_end(self._button(None, 'camera-photo-symbolic', viewer.choose_snapshot, 'Сохранить вид · Ctrl+S'))
-
-    @staticmethod
-    def _button(label, icon, callback, tooltip=None):
-        button = Gtk.Button(label=label) if label else Gtk.Button(icon_name=icon)
-        button.connect('clicked', callback)
-        if tooltip:
-            button.set_tooltip_text(tooltip)
-        return button
 
     def _body(self):
         viewer = self.viewer
