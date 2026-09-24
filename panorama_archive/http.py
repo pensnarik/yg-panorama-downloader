@@ -33,10 +33,13 @@ class RequestPacer:
     def defer(self, seconds):
         self.ready_at = max(self.ready_at, time.monotonic() + seconds)
 
-    def wait(self):
+    def wait(self, stopped=None):
         remaining = self.ready_at - time.monotonic()
         while remaining > 0:
-            time.sleep(remaining)
+            if stopped is None:
+                time.sleep(remaining)
+            elif stopped.wait(remaining):
+                raise InterruptedError('Download stopped')
             remaining = self.ready_at - time.monotonic()
 
 
@@ -44,11 +47,24 @@ class RateLimitedHttp:
     INITIAL_BACKOFF = 30
     MAX_BACKOFF = 600
 
-    def __init__(self, interval=.5):
+    def __init__(self, interval=.5, proxy=None, stopped=None):
         if not math.isfinite(interval) or interval <= 0:
             raise ValueError('request interval must be a positive finite number')
         self.interval = interval
         self.pacer = RequestPacer()
+        self.stopped = stopped
+        self.session = self._session(proxy) if proxy else None
+
+    @staticmethod
+    def _session(proxy):
+        session = requests.Session()
+        session.trust_env = False
+        session.proxies = {'http': proxy, 'https': proxy}
+        return session
+
+    def close(self):
+        if self.session is not None:
+            self.session.close()
 
     def get(self, url):
         backoff = self.INITIAL_BACKOFF
@@ -60,9 +76,11 @@ class RateLimitedHttp:
             backoff = min(backoff * 2, self.MAX_BACKOFF)
 
     def _request(self, url):
-        self.pacer.wait()
+        if self.stopped is not None and self.stopped.is_set():
+            raise InterruptedError('Download stopped')
+        self.pacer.wait(self.stopped)
         try:
-            return requests.get(url, timeout=30)
+            return (self.session or requests).get(url, timeout=30)
         finally:
             self.pacer.defer(self.interval)
 

@@ -1,5 +1,5 @@
 Pillow
-requests
+requests[socks]
 numpy
 Flask
 psycopg[binary]

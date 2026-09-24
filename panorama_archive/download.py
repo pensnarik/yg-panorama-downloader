@@ -3,6 +3,8 @@
 import argparse
 from pathlib import Path
 from urllib.parse import quote
+from threading import Lock
+from .proxies import ProxyList
 from .http import RateLimitedHttp
 
 
@@ -27,8 +29,13 @@ class DownloadProgress:
     def __init__(self, provider):
         self.provider = provider
         self.downloaded = self.cached = 0
+        self.lock = Lock()
 
     def tile(self, column, row, status, cached):
+        with self.lock:
+            self._report(column, row, status, cached)
+
+    def _report(self, column, row, status, cached):
         self.cached += int(status == 200 and cached)
         self.downloaded += int(status == 200 and not cached)
         outcome = 'уже на диске' if cached else 'сохранён' if status == 200 else f'граница HTTP {status}'
@@ -42,8 +49,9 @@ class DownloadProgress:
 
 
 class TileDownloader:
-    def __init__(self, provider, root=Path('map'), interval=.5):
+    def __init__(self, provider, root=Path('map'), interval=.5, proxies=None):
         self.provider = provider
+        self.proxies, self.interval = proxies or [], interval
         self.directory = root / provider.image_id / str(provider.level)
         self.http = RateLimitedHttp(interval)
         self.progress = DownloadProgress(provider)
@@ -51,10 +59,16 @@ class TileDownloader:
     def run(self):
         self.directory.mkdir(parents=True, exist_ok=True)
         print(f'Downloading {self.provider.image_id}', flush=True)
+        self._download_all()
+        self.progress.finish()
+
+    def _download_all(self):
+        if self.proxies:
+            from .parallel import ProxyDownloadPool
+            return ProxyDownloadPool(self, self.proxies, self.interval).run()
         for column in range(self.provider.columns):
             if not self._download_column(column):
                 break
-        self.progress.finish()
 
     def _download_column(self, column):
         for row in range(self.provider.rows):
@@ -88,7 +102,7 @@ class DownloadCommand:
     def run(cls, provider_name, arguments=None):
         options = cls._parse(provider_name, arguments)
         provider = TileProvider(provider_name, options.image_id, options.level)
-        TileDownloader(provider, interval=options.request_interval).run()
+        TileDownloader(provider, interval=options.request_interval, proxies=ProxyList.read(options.proxies_file)).run()
         return 0
 
     @staticmethod
@@ -98,6 +112,11 @@ class DownloadCommand:
         parser.add_argument('level', type=int, choices=TileProvider.RANGES[provider_name])
         parser.add_argument('--request-interval', type=DownloadCommand._interval, default=.5,
                             help='Pause between HTTP requests in seconds (default: 0.5)')
+        parser.add_argument('--proxies-file', help='SOCKS proxy list (default: proxies.txt when present)')
+        return DownloadCommand._options(parser, arguments)
+
+    @staticmethod
+    def _options(parser, arguments):
         options = parser.parse_args(arguments)
         if Path(options.image_id).name != options.image_id or options.image_id in ('.', '..'):
             parser.error('image_id must be a single directory name')

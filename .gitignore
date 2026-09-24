@@ -1,3 +1,4 @@
 /map/
 /panos/
 *.pyc
+/proxies.txt
