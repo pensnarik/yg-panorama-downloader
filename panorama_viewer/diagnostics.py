@@ -33,6 +33,7 @@ class ViewerSmokeTest:
         if not self.capturing:
             self._exercise_controls()
             self._exercise_sky_time()
+            self._exercise_sidebar()
             self._capture()
         elif self.viewer.area.snapshot_path is None:
             self._finish()
@@ -60,6 +61,16 @@ class ViewerSmokeTest:
         after = self.viewer.area.sky_overlay.snapshot
         assert before.sun.azimuth != after.sun.azimuth and before.moon.azimuth != after.moon.azimuth
         sky.select_panorama()
+
+    def _exercise_sidebar(self):
+        panel = self.viewer.metadata_panel
+        assert panel.revealer.get_reveal_child(), 'Sidebar should be visible initially'
+        text = self.viewer.shooting_label.get_text()
+        panel.button.set_active(False)
+        assert not panel.revealer.get_reveal_child(), 'Sidebar did not hide'
+        panel.button.set_active(True)
+        assert panel.revealer.get_reveal_child(), 'Sidebar did not reopen'
+        assert self.viewer.shooting_label.get_text() == text, 'Metadata was lost'
 
     def _capture(self):
         options, area = self.viewer.args, self.viewer.area

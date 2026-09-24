@@ -4,6 +4,7 @@ import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gdk
 from .gl import PanoramaArea
+from .metadata_panel import MetadataPanel
 
 
 class WindowBuilder:
@@ -15,12 +16,14 @@ class WindowBuilder:
         viewer.window = Gtk.ApplicationWindow(application=viewer, title='Панорамы · офлайн')
         viewer.window.set_default_size(1180, 800)
         viewer.window.connect('close-request', viewer.close_viewer)
+        viewer.metadata_panel = MetadataPanel(viewer)
         self._header()
         self._body()
 
     def _header(self):
         header = Gtk.HeaderBar()
         self.viewer.window.set_titlebar(header)
+        header.pack_start(self.viewer.metadata_panel.button)
         self._open_controls(header)
         self._view_controls(header)
         self.viewer.sky.add_controls(header)
@@ -50,38 +53,11 @@ class WindowBuilder:
 
     def _body(self):
         viewer = self.viewer
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
         viewer.window.set_child(box)
-        self._labels()
         viewer.area = PanoramaArea(viewer.args.gpu_memory, viewer.status.set_text, viewer.error, viewer.update_view)
-        for widget in (viewer.area, viewer.shooting_label, viewer.status, viewer.view_label):
-            box.append(widget)
-
-    def _labels(self):
-        viewer = self.viewer
-        viewer.status = Gtk.Label(label='Откройте metadata.json или выберите панораму.', xalign=0)
-        viewer.status.set_selectable(True)
-        viewer.status.set_wrap(True)
-        self._shooting_label()
-        self._status_margins()
-        viewer.view_label = Gtk.Label(label='Мышь · колесо · стрелки · Home · F11')
-        viewer.view_label.set_margin_bottom(8)
-
-    def _shooting_label(self):
-        self.viewer.shooting_label = Gtk.Label(label='Съёмка: дата и время неизвестны', xalign=0)
-        self.viewer.shooting_label.set_selectable(True)
-        self.viewer.shooting_label.set_wrap(True)
-        self.viewer.shooting_label.set_margin_start(12)
-        self.viewer.shooting_label.set_margin_end(12)
-        self.viewer.shooting_label.set_tooltip_text('capturedAt — время перехвата ответа, не съёмки.\n'
-            'timestamp API используется только как дата. Время из panoramaId не подтверждено провайдером.')
-
-    def _status_margins(self):
-        status = self.viewer.status
-        status.set_margin_start(12)
-        status.set_margin_end(12)
-        status.set_margin_top(6)
-        status.set_margin_bottom(6)
+        box.append(viewer.metadata_panel.revealer)
+        box.append(viewer.area)
 
 
 class FileDialog:
