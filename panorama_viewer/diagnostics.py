@@ -32,6 +32,7 @@ class ViewerSmokeTest:
     def _step(self):
         if not self.capturing:
             self._exercise_controls()
+            self._exercise_sky_time()
             self._capture()
         elif self.viewer.area.snapshot_path is None:
             self._finish()
@@ -48,6 +49,17 @@ class ViewerSmokeTest:
         controls.scroll(None, 0, -1)
         assert area.fov < old_fov, 'Scroll did not zoom'
         assert controls.key(None, Gdk.KEY_Home, 0, Gdk.ModifierType(0))
+
+    def _exercise_sky_time(self):
+        sky = self.viewer.sky
+        sky.sun.set_active(True)
+        sky.moon.set_active(True)
+        sky.time_entry.set_text('2025-09-15 02:52:22')
+        before = self.viewer.area.sky_overlay.snapshot
+        sky.time_entry.set_text('2025-09-15 08:52:22')
+        after = self.viewer.area.sky_overlay.snapshot
+        assert before.sun.azimuth != after.sun.azimuth and before.moon.azimuth != after.moon.azimuth
+        sky.select_panorama()
 
     def _capture(self):
         options, area = self.viewer.args, self.viewer.area

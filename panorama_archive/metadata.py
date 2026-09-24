@@ -10,7 +10,8 @@ from .merge import ArchiveDatabase
 
 
 class MetadataExporter:
-    QUERY = 'select image_id, metadata from aa.yandex_panorama_metadata where image_id = any(%s)'
+    QUERY = '''select external_id, capture_envelope from aa.panorama_payload
+        where provider = 'yandex' and external_id = any(%s) and capture_envelope is not null'''
 
     def __init__(self, root=Path('map')):
         self.root = Path(root)

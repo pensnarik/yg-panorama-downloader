@@ -92,10 +92,11 @@ class Viewer(Gtk.Application):
             self.error(str(error))
 
     def _show_panorama(self, panorama):
+        self.shooting_label.set_text(panorama.shooting_date.label())
         self.area.set_view(self.args.yaw, self.args.pitch, self.args.fov)
         self.library.include(panorama)
         self.window.set_title(f'{panorama.title} · {panorama.image_id} · офлайн')
-        self.sky.refresh()
+        self.sky.select_panorama()
         self.area.grab_focus()
 
     def choose_file(self, *arguments):

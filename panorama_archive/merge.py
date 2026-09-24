@@ -6,16 +6,13 @@ import re
 import psycopg
 from psycopg.rows import dict_row
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from .dates import ShootingDate
 
 
 class ArchiveDatabase:
     SETTINGS = dict(dbname='panoramas', user='allarchive', password='allarchive', host='localhost', port=5432)
-    TITLE_QUERY = '''select external_id, lat, lon,
-        (case when unix_timestamp is not null then to_timestamp(unix_timestamp) at time zone 'UTC'
-        else null end)::text as unix_timestamp,
-        coalesce(unix_timestamp::text, year::text, time_info) as date, view_name, count(*)
-        from aa.panorama_log where external_id = %s and provider = %s
-        group by 1, 2, 3, 4, 5, 6 order by count(*) desc limit 1'''
+    TITLE_QUERY = '''select *, latitude as lat, longitude as lon, title as view_name
+        from aa.panorama where external_id = %s and provider = %s'''
 
     def title(self, image_id, provider):
         with psycopg.connect(**self.SETTINGS) as connection:
@@ -28,7 +25,8 @@ class ArchiveDatabase:
 
     @staticmethod
     def _format_title(row):
-        title = f"{row['unix_timestamp'] or row['date']}, {row['lat']},{row['lon']}"
+        date = ShootingDate.from_columns(row).label() if 'date_precision' in row else row['unix_timestamp'] or row['date']
+        title = f"{date}, {row['lat']},{row['lon']}"
         return title + (f" | {row['view_name']}" if row['view_name'] else '')
 
 

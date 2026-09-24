@@ -52,5 +52,23 @@ class DownloadCommandTests(unittest.TestCase):
         self.assertEqual((directory / 'tile_0_0.jpg').read_bytes(), b'existing')
 
 
+class DownloadProgressTests(unittest.TestCase):
+    def test_progress_reports_download_cache_boundary_and_completion(self):
+        from panorama_archive.download import TileDownloader, TileProvider
+        with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()) as output:
+            downloader = TileDownloader(TileProvider('yandex', 'sample', 0), Path(directory))
+            downloader.directory.mkdir(parents=True)
+            (downloader.directory / 'tile_0_0.jpg').write_bytes(b'cached')
+            downloader.http.get = Mock(side_effect=[Mock(status_code=200, content=b'new'), Mock(status_code=404), Mock(status_code=404)])
+            downloader.run()
+        self.check_output(output.getvalue())
+        self.assertEqual(downloader.http.get.call_count, 3)
+
+    def check_output(self, output):
+        for expected in ('столбец 1/74', 'уже на диске', 'сохранён', 'граница HTTP 404',
+                         'скачивание завершено; скачано 1, уже на диске 1'):
+            self.assertIn(expected, output)
+
+
 if __name__ == '__main__':
     unittest.main()

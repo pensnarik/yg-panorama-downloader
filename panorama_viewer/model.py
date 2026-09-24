@@ -5,6 +5,7 @@ import json
 import math
 from pathlib import Path
 import re
+from panorama_archive.dates import ShootingDate
 
 
 class MetadataValues:
@@ -101,6 +102,7 @@ class Panorama:
         self._select_level(level)
         self._read_projection()
         self._read_view()
+        self.shooting_date = ShootingDate.from_data(self.data)
 
     @staticmethod
     def metadata_path(source):

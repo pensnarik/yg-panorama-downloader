@@ -23,22 +23,45 @@ class TileProvider:
                 f'&zoom={self.level}&nbt=1&fover=2')
 
 
+class DownloadProgress:
+    def __init__(self, provider):
+        self.provider = provider
+        self.downloaded = self.cached = 0
+
+    def tile(self, column, row, status, cached):
+        self.cached += int(status == 200 and cached)
+        self.downloaded += int(status == 200 and not cached)
+        outcome = 'уже на диске' if cached else 'сохранён' if status == 200 else f'граница HTTP {status}'
+        print(f'{self.provider.image_id}: столбец {column + 1}/{self.provider.columns}, '
+              f'тайл ({column}, {row}) — {outcome}; '
+              f'скачано {self.downloaded}, пропущено {self.cached}', flush=True)
+
+    def finish(self):
+        print(f'{self.provider.image_id}: скачивание завершено; скачано {self.downloaded}, '
+              f'уже на диске {self.cached}', flush=True)
+
+
 class TileDownloader:
     def __init__(self, provider, root=Path('map'), interval=.5):
         self.provider = provider
         self.directory = root / provider.image_id / str(provider.level)
         self.http = RateLimitedHttp(interval)
+        self.progress = DownloadProgress(provider)
 
     def run(self):
         self.directory.mkdir(parents=True, exist_ok=True)
-        print(f'Downloading {self.provider.image_id}')
+        print(f'Downloading {self.provider.image_id}', flush=True)
         for column in range(self.provider.columns):
             if not self._download_column(column):
                 break
+        self.progress.finish()
 
     def _download_column(self, column):
         for row in range(self.provider.rows):
-            if self._download_tile(column, row) == self.provider.boundary_status:
+            cached = (self.directory / f'tile_{column}_{row}.jpg').exists()
+            status = self._download_tile(column, row)
+            self.progress.tile(column, row, status, cached)
+            if status == self.provider.boundary_status:
                 return row != 0
         return True
 

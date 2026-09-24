@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Validation and lossless normalization of provider metadata."""
-from datetime import datetime
+from datetime import datetime, timezone
 import math
 import re
 from urllib.parse import urlsplit
@@ -88,6 +88,7 @@ class CaptureNormalizer:
     def _identity_fields(self):
         return {'schemaVersion': 1, 'provider': 'yandex', 'imageId': self.image_id,
                 'panoramaId': self.panorama_id, 'capturedAt': self.captured_at.isoformat(),
+                'observedAt': self.captured_at.isoformat(), 'receivedAt': datetime.now(timezone.utc).isoformat(),
                 'sourceUrl': self.capture['sourceUrl'], 'rawResponse': self.raw}
 
     def _geometry_fields(self):

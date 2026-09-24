@@ -89,7 +89,7 @@ class MetadataTests(unittest.TestCase):
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.json['imageId'], 'Z7lngTdIrFox')
         calls = cursor.execute.call_args_list
-        self.assertEqual(len(calls), 3)
+        self.assertTrue(any('insert into aa.panorama (' in call.args[0] for call in calls))
         self.assertIn('on conflict (image_id)', calls[0].args[0])
         self.assertEqual(calls[0].args[1][3].obj['rawResponse'], capture()['rawResponse'])
 
@@ -106,7 +106,7 @@ class MetadataTests(unittest.TestCase):
         with self.database([None]) as cursor:
             result = server.app.test_client().post('/aa/yandex-panorama-metadata', json=capture())
         self.assertEqual(result.status_code, 200)
-        self.assertEqual(cursor.execute.call_count, 1)
+        self.assertFalse(any('insert into aa.panorama_log' in call.args[0] for call in cursor.execute.call_args_list))
 
     def test_bad_payload_never_reaches_database(self):
         with patch.object(server.psycopg, 'connect') as connect:

@@ -2,6 +2,8 @@
 """Atomic persistence for metadata and tile observations."""
 import psycopg
 from psycopg.types.json import Jsonb
+from panorama_archive.catalog import PanoramaCatalog
+from panorama_archive.dates import DateEvidence
 
 
 class DatabaseSettings:
@@ -13,7 +15,8 @@ class Queries:
         (image_id, panorama_id, captured_at, metadata) values (%s, %s, %s, %s)
         on conflict (image_id) do update set panorama_id = excluded.panorama_id,
         captured_at = excluded.captured_at, metadata = excluded.metadata, updated_at = now()
-        where excluded.captured_at > aa.yandex_panorama_metadata.captured_at returning image_id'''
+        where aa.yandex_panorama_metadata.metadata->'rawResponse' is distinct from excluded.metadata->'rawResponse'
+        returning image_id'''
     METADATA_LOG = '''insert into aa.panorama_log
         (provider, external_id, lat, lon, unix_timestamp, view_name)
         values ('yandex', %s, %s, %s, %s, %s) returning id'''
@@ -24,7 +27,7 @@ class Queries:
         (provider, external_id, lat, lon, time_info, view_name, tile_name)
         values (%s, %s, %s, %s, %s, %s, %s) returning id'''
     LOG_META = 'insert into aa.panorama_log_meta (id, meta) values (%s, %s)'
-    GET = 'select metadata from aa.yandex_panorama_metadata where image_id = %s'
+    GET = "select capture_envelope from aa.panorama_payload where provider = 'yandex' and external_id = %s"
 
 
 class TileObservation:
@@ -37,9 +40,8 @@ class TileObservation:
         return latitude, longitude
 
     def timestamp(self):
-        identifier = self.data.get('panoramaIdFromURL') or ''
-        suffix = identifier.split('_')[-1]
-        return int(suffix) if suffix.isdigit() else None
+        instant = DateEvidence.identifier_time(self.data.get('panoramaIdFromURL'))
+        return int(instant.timestamp()) if instant else None
 
     @staticmethod
     def known(value):
@@ -55,7 +57,7 @@ class TileObservation:
         identifier = self.data.get('panoramaIdFromURL')
         return {'panarama_id_from_url': identifier, 'panorama_id_from_url': identifier,
                 'observed_view': {'direction': self.data.get('direction'), 'span': self.data.get('span')},
-                'source': 'tile-request'}
+                'source': 'tile-request', 'rawObservation': self.data}
 
 
 class PanoramaRepository:
@@ -69,6 +71,7 @@ class PanoramaRepository:
                 cursor.execute(Queries.UPSERT, values)
                 if cursor.fetchone():
                     self._metadata_log(connection, cursor, metadata)
+                PanoramaCatalog.metadata(cursor, metadata)
 
     def _metadata_log(self, connection, cursor, metadata):
         point = metadata.get('position') or {}
@@ -102,5 +105,5 @@ class PanoramaRepository:
         with psycopg.connect(**self.settings) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(query, observation.values())
-                if observation.provider == 'yandex':
-                    self.save_log_meta(connection, cursor.fetchone()[0], Jsonb(observation.metadata()))
+                self.save_log_meta(connection, cursor.fetchone()[0], Jsonb(observation.metadata()))
+                PanoramaCatalog.observation(cursor, observation.provider, observation.data)

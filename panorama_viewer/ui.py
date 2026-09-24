@@ -54,7 +54,7 @@ class WindowBuilder:
         viewer.window.set_child(box)
         self._labels()
         viewer.area = PanoramaArea(viewer.args.gpu_memory, viewer.status.set_text, viewer.error, viewer.update_view)
-        for widget in (viewer.area, viewer.status, viewer.view_label):
+        for widget in (viewer.area, viewer.shooting_label, viewer.status, viewer.view_label):
             box.append(widget)
 
     def _labels(self):
@@ -62,9 +62,19 @@ class WindowBuilder:
         viewer.status = Gtk.Label(label='Откройте metadata.json или выберите панораму.', xalign=0)
         viewer.status.set_selectable(True)
         viewer.status.set_wrap(True)
+        self._shooting_label()
         self._status_margins()
         viewer.view_label = Gtk.Label(label='Мышь · колесо · стрелки · Home · F11')
         viewer.view_label.set_margin_bottom(8)
+
+    def _shooting_label(self):
+        self.viewer.shooting_label = Gtk.Label(label='Съёмка: дата и время неизвестны', xalign=0)
+        self.viewer.shooting_label.set_selectable(True)
+        self.viewer.shooting_label.set_wrap(True)
+        self.viewer.shooting_label.set_margin_start(12)
+        self.viewer.shooting_label.set_margin_end(12)
+        self.viewer.shooting_label.set_tooltip_text('capturedAt — время перехвата ответа, не съёмки.\n'
+            'timestamp API используется только как дата. Время из panoramaId не подтверждено провайдером.')
 
     def _status_margins(self):
         status = self.viewer.status
@@ -140,6 +150,11 @@ class ViewerControls:
         return True
 
     def key(self, controller, key, code, state):
+        if isinstance(self.viewer.window.get_focus(), Gtk.Editable):
+            return False
+        return self._handle_key(key, state)
+
+    def _handle_key(self, key, state):
         changes = self._camera_keys()
         if key in changes:
             self.area.set_view(**changes[key])
