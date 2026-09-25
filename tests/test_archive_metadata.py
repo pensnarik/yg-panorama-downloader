@@ -67,7 +67,8 @@ class ArchiveMetadataTests(unittest.TestCase):
         with patch.object(MetadataExporter, 'sync') as sync, patch.object(Path, 'exists', return_value=True):
             with patch.object(DownloadMonitor, '_records', return_value=records):
                 with patch.object(DownloadMonitor, 'download') as download:
-                    DownloadMonitor().monitor()
+                    with patch('panorama_archive.monitor.QueueWorker.process', return_value=False):
+                        DownloadMonitor().monitor()
         sync.assert_called_once_with()
         download.assert_not_called()
 

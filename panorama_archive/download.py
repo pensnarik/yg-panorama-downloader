@@ -10,13 +10,15 @@ from .proxies import ProxyList
 from .http import RateLimitedHttp
 
 from .logging import DownloadLog
+from .tile_geometry import TileGeometry
 
 class TileProvider:
     RANGES = {'yandex': {0: (74, 29), 1: (28, 14)}, 'google': {4: (10, 10), 5: (26, 13)}}
 
     def __init__(self, name, image_id, level):
         self.name, self.image_id, self.level = name, image_id, level
-        self.columns, self.rows = self.RANGES[name][level]
+        geometry = TileGeometry.read(image_id, level) if name == 'yandex' else None
+        self.columns, self.rows = geometry or self.RANGES[name][level]
         self.boundary_status = 404 if name == 'yandex' else 400
 
     def url(self, column, row):

@@ -17,7 +17,7 @@ class CatalogQueries:
                'shooting_day date_precision date_source date_conflict time_candidate time_source provider_timestamp '
                'origin_azimuth origin_tilt tile_width tile_height view_azimuth view_pitch span_horizontal span_vertical '
                'geometry_valid source_url client_observed_at received_at')
-    OBSERVATION = ('provider external_id panorama_id title latitude longitude shooting_year shooting_month shooting_day '
+    OBSERVATION = ('provider external_id panorama_id title browser_title latitude longitude shooting_year shooting_month shooting_day '
                    'date_precision date_source date_conflict time_candidate time_source page_date legacy_timestamp')
     CAPTURE = '''insert into aa.panorama_capture (provider, external_id, response_hash, metadata)
         values ('yandex', %s, %s, %s) on conflict (provider, external_id, response_hash)
@@ -36,6 +36,8 @@ class CatalogQueries:
 
     @staticmethod
     def _assignment(name, strong):
+        if name == 'browser_title':
+            return 'browser_title = coalesce(excluded.browser_title, aa.panorama.browser_title)'
         if name == 'title':
             return CatalogTitles.assignment(strong, CatalogQueries.HAS_METADATA)
         return CatalogQueries._field_assignment(name, strong)

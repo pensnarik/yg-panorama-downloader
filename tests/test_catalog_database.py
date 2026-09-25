@@ -18,7 +18,8 @@ class TemporaryCatalogCursor:
         self.cursor = cursor
 
     def execute(self, query, parameters=None):
-        query = re.sub(r'aa\.(panorama(?:_level|_capture|_payload)?|yandex_panorama_metadata)\b', r'pg_temp.\1', query)
+        query = query.replace('aa.panorama_download_queue_id_seq', 'pg_temp.panorama_download_queue_id_seq')
+        query = re.sub(r'aa\.(panorama(?:_level|_capture|_payload|_download_queue|_log)?|yandex_panorama_metadata)\b', r'pg_temp.\1', query)
         return self.cursor.execute(query, parameters)
 
     def fetchone(self):
@@ -37,6 +38,8 @@ class CatalogDatabaseTests(unittest.TestCase):
         self.migrate('V003__Panorama_catalog.sql')
         self.cursor.cursor.execute('create temporary table yandex_panorama_metadata (like aa.yandex_panorama_metadata including all)')
         self.migrate('V004__Panorama_payload.sql')
+        self.cursor.cursor.execute('create temporary table panorama_log (like aa.panorama_log including all)')
+        self.migrate('V005__Download_queue.sql')
         self.metadata = normalize_capture(capture())
 
     def migrate(self, filename):
@@ -106,6 +109,15 @@ class CatalogDatabaseTests(unittest.TestCase):
         PanoramaCatalog.metadata(self.cursor, self.metadata)
         PanoramaCatalog.observation(self.cursor, 'yandex', {'panoramaId': 'Z7lngTdIrFox', 'view': ' unknown '})
         self.assertEqual(self.record()['title'], 'улица Лазо')
+
+    def test_browser_title_survives_named_api_and_empty_browser_observations(self):
+        PanoramaCatalog.observation(self.cursor, 'yandex', {'panoramaId': 'Z7lngTdIrFox', 'view': 'Browser street'})
+        self.metadata['rawResponse']['data']['Data']['Point']['name'] = 'API street'
+        PanoramaCatalog.metadata(self.cursor, self.metadata)
+        PanoramaCatalog.observation(self.cursor, 'yandex', {'panoramaId': 'Z7lngTdIrFox', 'view': ''})
+        PanoramaCatalog.metadata(self.cursor, self.metadata)
+        self.assertEqual(self.record()['title'], 'Browser street')
+        self.assertEqual(self.record()['browser_title'], 'Browser street')
 
     def test_month_precision_survives_unknown_or_year_only_observation(self):
         for date in ('July 2025', '2025', 'unknown'):

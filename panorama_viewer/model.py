@@ -177,7 +177,8 @@ class Panorama:
 class PanoramaLibrary:
     @staticmethod
     def discover(root):
-        return sorted(Path(root).glob('*/metadata.json'))
+        return sorted(path for path in Path(root).glob('*/metadata.json')
+                      if not (path.parent / '.download-in-progress').exists())
 
     @staticmethod
     def label(path):

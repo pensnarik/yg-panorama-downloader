@@ -79,5 +79,6 @@ class PanoramaRecord:
         return RecordValues.pair(coordinates, ('longitude', 'latitude')) | {
             'provider': provider, 'external_id': data['panoramaId'], 'latest_observation': data,
             'panorama_id': data.get('panoramaIdFromURL'), 'page_date': RecordValues.known(data.get('year')),
-            'title': CatalogTitles.normalize(data.get('view')), 'legacy_timestamp': data.get('legacyTimestamp')
+            'title': CatalogTitles.normalize(data.get('view')), 'browser_title': CatalogTitles.normalize(data.get('view')),
+            'legacy_timestamp': data.get('legacyTimestamp')
         } | ShootingDate.from_observation(provider, data).columns()

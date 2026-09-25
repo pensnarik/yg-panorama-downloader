@@ -66,6 +66,7 @@ class NavigationTests(TestCase):
 
     def test_unavailable_target_does_not_open_anything(self):
         navigation = NavigationOverlay.__new__(NavigationOverlay)
-        navigation.viewer, navigation.index = Mock(), {}
+        navigation.viewer, navigation.index, navigation.queue = Mock(), {}, Mock()
         navigation._navigate(None, 'missing')
         navigation.viewer.open_path.assert_not_called()
+        navigation.queue.submit.assert_called_once_with(None, 'missing')

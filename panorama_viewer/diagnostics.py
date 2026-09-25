@@ -44,7 +44,7 @@ class ViewerSmokeTest:
     def _exercise_navigation(self):
         navigation = self.viewer.navigation
         navigation._load()
-        available = [(link, button) for link, button in navigation.buttons if button.get_sensitive()]
+        available = [(link, button) for link, button in navigation.buttons if link.identifier in navigation.index]
         if available:
             link, button = available[0]
             direction = (self.viewer.area.yaw, self.viewer.area.pitch, self.viewer.area.fov)

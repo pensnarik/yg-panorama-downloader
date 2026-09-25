@@ -114,7 +114,7 @@ class LocalPanoramaIndex:
         from .model import MetadataValues
         try:
             data = MetadataValues.read(path)
-            if any(path.parent.glob('*/tile_*_*.jpg')):
+            if not (path.parent / '.download-in-progress').exists() and any(path.parent.glob('*/tile_*_*.jpg')):
                 return data.get('panoramaId')
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
             return None

@@ -162,7 +162,7 @@ class PanelStyle:
     .panorama-sidebar button.panorama-current-year:disabled label { color: white; opacity: 1; }
     .panorama-transition { min-width: 24px; min-height: 34px; padding: 4px 9px;
         border-radius: 24px; background: #174f7b; color: white; font-size: 20px; }
-    .panorama-transition:disabled { background: #555; color: #bbb; }
+    .panorama-transition.panorama-unavailable, .panorama-transition:disabled { background: #555; color: #bbb; }
     .panorama-marker {
         background: rgba(20, 27, 38, 0.88); color: white;
         border: 1px solid rgba(255, 255, 255, 0.7); border-radius: 8px;

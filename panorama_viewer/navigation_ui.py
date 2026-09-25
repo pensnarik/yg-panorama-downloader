@@ -2,16 +2,26 @@
 """Clickable offline panorama transitions over the GTK panorama viewport."""
 import gi
 gi.require_version('Gtk', '4.0')
-from gi.repository import Gtk
+from gi.repository import Gtk, GLib
 from .markers import MarkerGeometry, MarkerPlacement
+from .queue_ui import QueueController
 from .navigation import LocalPanoramaIndex, PanoramaConnections
 
 
 class NavigationOverlay:
     def __init__(self, viewer, overlay):
         self.viewer, self.overlay = viewer, overlay
+        self.queue = QueueController(viewer)
         self.previous, self.buttons, self.index = None, [], {}
         viewer.area.add_tick_callback(self._tick)
+        GLib.timeout_add_seconds(10, self._refresh_library)
+
+    def _refresh_library(self):
+        if self.viewer.library.closed:
+            return False
+        self.viewer.library._database_loaded()
+        self.previous = None
+        return True
 
     def _tick(self, widget, clock):
         area = self.viewer.area
@@ -37,8 +47,9 @@ class NavigationOverlay:
         available = link.identifier in self.index
         button = Gtk.Button(label='➜', halign=Gtk.Align.START, valign=Gtk.Align.START)
         button.add_css_class('panorama-transition')
-        button.set_sensitive(available)
-        button.set_tooltip_text(link.name + (' · перейти' if available else ' · не скачана'))
+        if not available:
+            button.add_css_class('panorama-unavailable')
+        button.set_tooltip_text(link.name + (' · перейти' if available else ' · нажмите, чтобы скачать'))
         button.connect('clicked', self._navigate, link.identifier)
         self.overlay.add_overlay(button)
         self.buttons.append((link, button))
@@ -62,7 +73,7 @@ class NavigationOverlay:
     def _navigate(self, button, identifier):
         path = self.index.get(identifier)
         if path is None:
-            return
+            return self.queue.submit(button, identifier)
         camera = self.viewer.area.camera
         direction = camera.yaw, camera.pitch, camera.fov
         self.viewer.open_path(path)

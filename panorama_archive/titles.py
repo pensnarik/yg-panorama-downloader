@@ -22,8 +22,8 @@ class CatalogTitles:
         existing = "nullif(btrim(aa.panorama.title), '')"
         preferred = f'coalesce({incoming}, {existing})'
         if strong:
-            return 'title = ' + preferred
-        return f'title = case when {has_metadata} then coalesce({existing}, {incoming}) else {preferred} end'
+            return 'title = coalesce(aa.panorama.browser_title, ' + incoming + ', ' + existing + ')'
+        return 'title = ' + preferred
 
     @classmethod
     def repair(cls, cursor):

@@ -11,6 +11,7 @@ from .merge import ArchiveDatabase
 from .metadata import MetadataExporter
 
 from .logging import DownloadLog
+from .queue_worker import QueueWorker
 
 class DownloadMonitor:
     PROVIDERS = {'google': ('pano-google.py', 5), 'yandex': ('pano.py', 0)}
@@ -39,10 +40,17 @@ class DownloadMonitor:
     def _records():
         with psycopg.connect(**ArchiveDatabase.SETTINGS) as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
-                cursor.execute('select external_id, provider from aa.panorama order by first_seen_at, external_id')
+                cursor.execute("""select external_id, provider from aa.panorama p where not exists
+                    (select 1 from aa.panorama_download_queue q where (q.external_id = p.external_id or q.panorama_id = p.panorama_id)
+                     and p.provider = 'yandex' and q.status <> 'completed') order by first_seen_at, external_id""")
                 return cursor.fetchall()
 
     def monitor(self):
+        if QueueWorker(self).process():
+            return
+        self._catalog()
+
+    def _catalog(self):
         MetadataExporter().sync()
         for record in self._records():
             identifier, provider = record['external_id'], record['provider']
@@ -64,7 +72,7 @@ class DownloadMonitor:
                 DownloadLog.write(details.strip().splitlines()[-1])
 
     def run(self):
-        DownloadLog.write('Монитор скачивания запущен. Проверка каталога каждые 10 секунд.', flush=True)
+        DownloadLog.write('Монитор скачивания запущен. Проверка очереди и каталога каждые 10 секунд.', flush=True)
         while True:
             try:
                 self.monitor()
