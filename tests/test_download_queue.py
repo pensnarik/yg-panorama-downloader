@@ -90,6 +90,7 @@ class QueueInterfaceTests(TestCase):
     def test_unavailable_arrow_is_clickable_and_gray(self):
         navigation = NavigationOverlay.__new__(NavigationOverlay)
         navigation.index, navigation.overlay, navigation.buttons = {}, Mock(), []
+        navigation.progress = SimpleNamespace(states={})
         with patch('panorama_viewer.navigation_ui.Gtk.Button') as constructor:
             navigation._button(SimpleNamespace(identifier='missing', name='Street'))
         button = constructor.return_value

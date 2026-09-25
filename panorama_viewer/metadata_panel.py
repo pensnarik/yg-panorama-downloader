@@ -154,6 +154,9 @@ class PanelControls:
 
 class PanelStyle:
     CSS = b"""
+    .panorama-download-progress trough { min-width: 30px; min-height: 3px; background: #333; }
+    .panorama-download-progress progress { min-width: 0; min-height: 3px; background: #8cc8ff; }
+
     .panorama-sidebar button.panorama-missing-year {
         background-image: none; background-color: #f6d58b; color: #452b05;
         border-color: #c99b42; text-shadow: none;

@@ -5,6 +5,7 @@ gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, GLib
 from .markers import MarkerGeometry, MarkerPlacement
 from .queue_ui import QueueController
+from .progress_ui import QueueProgressController, QueueProgressIndicator
 from .navigation import LocalPanoramaIndex, PanoramaConnections
 
 
@@ -12,6 +13,7 @@ class NavigationOverlay:
     def __init__(self, viewer, overlay):
         self.viewer, self.overlay = viewer, overlay
         self.queue = QueueController(viewer)
+        self.progress = QueueProgressController(self)
         self.previous, self.buttons, self.index = None, [], {}
         viewer.area.add_tick_callback(self._tick)
         GLib.timeout_add_seconds(10, self._refresh_library)
@@ -47,12 +49,18 @@ class NavigationOverlay:
         available = link.identifier in self.index
         button = Gtk.Button(label='➜', halign=Gtk.Align.START, valign=Gtk.Align.START)
         button.add_css_class('panorama-transition')
-        if not available:
-            button.add_css_class('panorama-unavailable')
-        button.set_tooltip_text(link.name + (' · перейти' if available else ' · нажмите, чтобы скачать'))
+        self._appearance(button, link, available)
         button.connect('clicked', self._navigate, link.identifier)
         self.overlay.add_overlay(button)
         self.buttons.append((link, button))
+
+    def _appearance(self, button, link, available):
+        button.set_tooltip_text(link.name + (' · перейти' if available else ' · нажмите, чтобы скачать'))
+        if not available:
+            button.add_css_class('panorama-unavailable')
+            state = self.progress.states.get(link.identifier)
+            if state:
+                QueueProgressIndicator.apply(button, state)
 
     def _layout(self):
         occupied = []
@@ -68,7 +76,8 @@ class NavigationOverlay:
         area = self.viewer.area
         viewport = area.get_width(), area.get_height()
         center = MarkerGeometry.screen(link, area.camera, *viewport)
-        return MarkerPlacement.rectangle(center, (44, 44), viewport, []) if center else None
+        size = (52, 64) if link.identifier in self.progress.states and link.identifier not in self.index else (44, 44)
+        return MarkerPlacement.rectangle(center, size, viewport, []) if center else None
 
     def _navigate(self, button, identifier):
         path = self.index.get(identifier)
