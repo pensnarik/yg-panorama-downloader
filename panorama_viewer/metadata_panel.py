@@ -3,6 +3,7 @@
 import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, Pango, Gdk
+from .history_ui import HistoryPanel
 
 
 class MetadataPanel:
@@ -35,9 +36,18 @@ class MetadataPanel:
 
     def _populate(self, box):
         viewer = self.viewer
+        self._marker_control(box)
         viewer.status = self._section(box, 'Панорама', 'Откройте панораму для просмотра.', 'image-x-generic-symbolic')
         viewer.view_label = self._section(box, 'Направление', 'Азимут · наклон · обзор', 'find-location-symbolic')
         self._section(box, 'Управление', 'Перетаскивание — поворот\nКолесо — масштаб\nHome — исходный вид\nF11 — полный экран', 'input-mouse-symbolic')
+
+    def _marker_control(self, box):
+        card = self.card(box, 'Подписи на панораме', 'mark-location-symbolic')
+        self.viewer.marker_toggle = Gtk.CheckButton(label='Маркеры', active=False)
+        self.viewer.marker_toggle.set_tooltip_text('Номера домов и подписи из метаданных. Видны сквозь объекты.')
+        card.append(self.viewer.marker_toggle)
+        self.viewer.navigation_toggle = Gtk.CheckButton(label='Переходы', active=True)
+        card.append(self.viewer.navigation_toggle)
 
     @staticmethod
     def _title(box):
@@ -93,6 +103,7 @@ class PanelControls:
         self._actions(box)
         MetadataPanel._title(box)
         self._library(MetadataPanel.card(box, 'Библиотека', 'folder-open-symbolic'))
+        self.viewer.history = HistoryPanel(self.viewer, MetadataPanel.card(box, 'Другие даты', 'x-office-calendar-symbolic'))
         self.viewer.sky.add_controls(MetadataPanel.card(box, 'Небо и время', 'weather-clear-symbolic'))
 
     def _library(self, box):
@@ -143,6 +154,20 @@ class PanelControls:
 
 class PanelStyle:
     CSS = b"""
+    .panorama-sidebar button.panorama-current-year:disabled {
+        background-image: none; background-color: #1c71d8; color: white;
+        border-color: #1a5fb4; opacity: 1; font-weight: 700;
+        box-shadow: none; text-shadow: none;
+    }
+    .panorama-sidebar button.panorama-current-year:disabled label { color: white; opacity: 1; }
+    .panorama-transition { min-width: 24px; min-height: 34px; padding: 4px 9px;
+        border-radius: 24px; background: #174f7b; color: white; font-size: 20px; }
+    .panorama-transition:disabled { background: #555; color: #bbb; }
+    .panorama-marker {
+        background: rgba(20, 27, 38, 0.88); color: white;
+        border: 1px solid rgba(255, 255, 255, 0.7); border-radius: 8px;
+        padding: 5px 9px; font-size: 14px; font-weight: 600;
+    }
     .panorama-sidebar {
         background-color: @theme_bg_color;
         border-right: 1px solid alpha(@theme_fg_color, 0.12);

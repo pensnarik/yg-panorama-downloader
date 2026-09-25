@@ -24,9 +24,14 @@ class SkyController:
         self.time_hint = Gtk.Label(xalign=0, wrap=True, max_width_chars=30)
         box.append(self.time_hint)
         self._time_buttons(box)
-        self.sun = self._toggle(box, 'Солнце')
-        self.moon = self._toggle(box, 'Луна')
+        self._body_toggles(box)
         self._details(box)
+
+    def _body_toggles(self, box):
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
+        self.sun = self._toggle(row, 'Солнце')
+        self.moon = self._toggle(row, 'Луна')
+        box.append(row)
 
     def _details(self, box):
         self.label = Gtk.Label(label='ⓘ Расчётные данные', xalign=0)

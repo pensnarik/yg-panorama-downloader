@@ -5,6 +5,8 @@ gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gdk
 from .gl import PanoramaArea
 from .metadata_panel import MetadataPanel
+from .marker_ui import MarkerOverlay
+from .navigation_ui import NavigationOverlay
 
 
 class WindowBuilder:
@@ -31,7 +33,15 @@ class WindowBuilder:
         viewer.window.set_child(box)
         viewer.area = PanoramaArea(viewer.args.gpu_memory, viewer.status.set_text, viewer.error, viewer.update_view)
         box.append(viewer.metadata_panel.revealer)
-        box.append(viewer.area)
+        box.append(self._panorama_overlay())
+
+    def _panorama_overlay(self):
+        overlay = Gtk.Overlay(hexpand=True, vexpand=True)
+        overlay.set_child(self.viewer.area)
+        self.viewer.markers = MarkerOverlay(self.viewer)
+        overlay.add_overlay(self.viewer.markers)
+        self.viewer.navigation = NavigationOverlay(self.viewer, overlay)
+        return overlay
 
 
 class FileDialog:

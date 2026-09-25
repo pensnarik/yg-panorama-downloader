@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 from panorama_archive.dates import ShootingDate
 from panorama_archive.titles import CatalogTitles
+from .markers import PanoramaMarkers
 
 
 class MetadataValues:
@@ -111,7 +112,11 @@ class Panorama:
         self._select_level(level)
         self._read_projection()
         self._read_view()
+        self._read_annotations()
+
+    def _read_annotations(self):
         self.shooting_date = ShootingDate.from_data(self.data)
+        self.markers = PanoramaMarkers.read(self.path, self.data)
 
     @staticmethod
     def metadata_path(source):

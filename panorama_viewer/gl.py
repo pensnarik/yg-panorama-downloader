@@ -152,6 +152,8 @@ class PanoramaArea(Gtk.GLArea):
         if self.snapshot_path:
             try:
                 self.renderer.save_snapshot(self.snapshot_path)
+                if hasattr(self, 'marker_snapshot'):
+                    self.marker_snapshot(self.snapshot_path)
             finally:
                 self.snapshot_path = None
 

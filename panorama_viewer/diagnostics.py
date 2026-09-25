@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Optional real GTK/GPU smoke test, separate from the application lifecycle."""
 from pathlib import Path
+import math
 import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import GLib, Gdk
@@ -10,6 +11,8 @@ class ViewerSmokeTest:
     def __init__(self, viewer):
         self.viewer = viewer
         self.capturing = False
+        self.navigation_checked = False
+        self.history_checked = False
         self.sources = []
 
     def start(self):
@@ -18,7 +21,7 @@ class ViewerSmokeTest:
     def poll(self):
         try:
             if self._ready():
-                return self._step()
+                return self._advance()
         except Exception as error:
             self.viewer.error(f'Проверка просмотра: {error}')
             return False
@@ -28,6 +31,43 @@ class ViewerSmokeTest:
         area = self.viewer.area
         return (area.panorama is not None and hasattr(area, 'layout')
                 and area.loaded_pages == area.layout.columns * area.layout.rows)
+
+    def _advance(self):
+        if not self.navigation_checked:
+            self.navigation_checked = True
+            return self._exercise_navigation()
+        if not self.history_checked:
+            self.history_checked = True
+            return self._exercise_history()
+        return self._step()
+
+    def _exercise_navigation(self):
+        navigation = self.viewer.navigation
+        navigation._load()
+        available = [(link, button) for link, button in navigation.buttons if button.get_sensitive()]
+        if available:
+            link, button = available[0]
+            direction = (self.viewer.area.yaw, self.viewer.area.pitch, self.viewer.area.fov)
+            button.emit('clicked')
+            self._check_transition(link.identifier, direction)
+        return True
+
+    def _exercise_history(self):
+        history = self.viewer.history
+        available = [(link, button) for link, button in history.buttons if button.get_sensitive()]
+        if available:
+            link, button = next((item for item in available if item[0].label == '2019'), available[0])
+            direction = (self.viewer.area.yaw, self.viewer.area.pitch, self.viewer.area.fov)
+            button.emit('clicked')
+            self._check_transition(link.identifier, direction)
+            print(f'GTK history: switched to {link.label}')
+        return True
+
+    def _check_transition(self, identifier, direction):
+        area = self.viewer.area
+        assert area.panorama.panorama_id == identifier, 'Click did not open the linked panorama'
+        assert (area.yaw, area.pitch, area.fov) == direction, 'Transition changed camera direction'
+        print(f'GTK transition: opened {area.panorama.image_id}, camera preserved')
 
     def _step(self):
         if not self.capturing:
@@ -45,6 +85,7 @@ class ViewerSmokeTest:
         self._exercise_time_editor()
         self._exercise_timezone()
         self._exercise_sidebar()
+        self._exercise_markers()
 
     def _check_panel_width(self):
         panel = self.viewer.metadata_panel.revealer
@@ -53,8 +94,38 @@ class ViewerSmokeTest:
         assert self.viewer.area.get_width() > width, 'Sidebar occupies most of the window'
         print(f'GTK sidebar: {width}px, panorama: {self.viewer.area.get_width()}px')
 
+    def _exercise_markers(self):
+        viewer = self.viewer
+        viewer.marker_toggle.set_active(True)
+        viewer.markers._load(viewer.area.panorama)
+        viewer.area.set_view(180, 12, 100)
+        viewer.markers._layout()
+        if viewer.area.panorama.markers:
+            self._check_visible_marker()
+        viewer.marker_toggle.set_active(False)
+        viewer.markers._layout()
+
+    def _check_visible_marker(self):
+        viewer = self.viewer
+        direction = viewer.area.panorama.markers[0].direction
+        viewer.area.set_view(math.degrees(math.atan2(direction[0], direction[2])), math.degrees(math.asin(direction[1])))
+        viewer.markers._layout()
+        assert viewer.markers.visible, 'Marker aimed at camera center is not visible'
+        self._check_marker_label_width()
+        print(f'GTK markers: {len(viewer.markers.labels)} loaded, {len(viewer.markers.visible)} visible')
+
+    def _check_marker_label_width(self):
+        from gi.repository import Gtk
+        overlay = self.viewer.markers
+        for marker, label in overlay.labels:
+            if label.get_visible():
+                minimum, natural = label.measure(Gtk.Orientation.HORIZONTAL, -1)[:2]
+                assert minimum >= natural, f'Marker shrinks to an ellipsis: {marker.name}'
+                assert label.get_size_request()[0] == overlay.sizes[label][0]
+
     def _exercise_time_editor(self):
         sky = self.viewer.sky
+        assert sky.sun.get_parent() is sky.moon.get_parent(), 'Sky toggles must share a row'
         sky.editor.slider.set_value(13 * 3600 + 15 * 60)
         assert sky.editor.time_entry.get_text() == '13:15:00', 'Slider did not update time'
         assert sky.viewer.area.sky_overlay.snapshot.timestamp.hour == 13

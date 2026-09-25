@@ -44,6 +44,7 @@ class LibrarySelection:
         self.paths = sorted(set(self.paths) | set(PanoramaLibrary.discover(Path(self.viewer.args.library).expanduser().resolve())))
         self._refresh_title(current)
         self._select_after_refresh(current)
+        self.viewer.history.refresh()
         return False
 
     def _select_after_refresh(self, current):
@@ -135,6 +136,7 @@ class Viewer(Gtk.Application):
         self.library.include(panorama)
         self.window.set_title(f'{panorama.title} · {panorama.image_id} · офлайн')
         self.sky.select_panorama()
+        self.history.refresh()
         self.area.grab_focus()
 
     def choose_file(self, *arguments):
