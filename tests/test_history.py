@@ -46,8 +46,18 @@ class HistoryTests(TestCase):
         panel.viewer.open_path.assert_called_once_with('/archive/old/metadata.json')
         panel.viewer.area.set_view.assert_called_once_with(123, -4, 50)
 
-    def test_missing_local_version_cannot_be_opened(self):
+    def test_missing_local_version_is_queued_instead_of_opened(self):
         panel = HistoryPanel.__new__(HistoryPanel)
-        panel.index, panel.viewer = {}, Mock()
+        panel.index, panel.viewer, panel.queue = {}, Mock(), Mock()
         panel._open(None, 'missing')
         panel.viewer.open_path.assert_not_called()
+        panel.queue.submit.assert_called_once_with(None, 'missing')
+
+    def test_missing_year_is_clickable_and_has_distinct_color(self):
+        panel = HistoryPanel.__new__(HistoryPanel)
+        panel.index = {}
+        with patch('panorama_viewer.history_ui.Gtk.Button'):
+            button = panel._button(SimpleNamespace(identifier='old', label='2019'), 'current')
+        button.set_sensitive.assert_called_once_with(True)
+        button.add_css_class.assert_called_once_with('panorama-missing-year')
+        button.set_tooltip_text.assert_called_once_with('Скачать панораму за эту дату')

@@ -154,6 +154,13 @@ class PanelControls:
 
 class PanelStyle:
     CSS = b"""
+    .panorama-sidebar button.panorama-missing-year {
+        background-image: none; background-color: #f6d58b; color: #452b05;
+        border-color: #c99b42; text-shadow: none;
+    }
+    .panorama-sidebar button.panorama-missing-year:hover { background-color: #ffe3a5; }
+    .panorama-sidebar button.panorama-missing-year:active { background-color: #e5bb64; }
+
     .panorama-sidebar button.panorama-current-year:disabled {
         background-image: none; background-color: #1c71d8; color: white;
         border-color: #1a5fb4; opacity: 1; font-weight: 700;

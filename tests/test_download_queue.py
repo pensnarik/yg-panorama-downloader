@@ -105,3 +105,12 @@ class QueueInterfaceTests(TestCase):
         button.set_sensitive.assert_called_once_with(True)
         self.assertNotIn('missing', controller.pending)
         button.set_label.assert_not_called()
+
+    def test_successful_submission_preserves_year_label(self):
+        viewer, button = Mock(), Mock()
+        viewer.library.closed = False
+        button.get_label.return_value = '2019'
+        controller = QueueController(viewer)
+        controller._finished(button, 'old', 'В очереди', True)
+        button.set_label.assert_not_called()
+        button.set_sensitive.assert_called_once_with(True)

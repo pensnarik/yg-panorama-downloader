@@ -34,7 +34,7 @@ class QueueController:
             return False
         button.set_sensitive(True)
         button.set_tooltip_text(message + (' · повторный клик проверит очередь' if success else ''))
-        if success:
+        if success and button.get_label() == '➜':
             button.set_label('⌛')
         self.viewer.status.set_text(message)
         return False

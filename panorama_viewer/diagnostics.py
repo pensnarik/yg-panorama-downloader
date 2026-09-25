@@ -54,7 +54,7 @@ class ViewerSmokeTest:
 
     def _exercise_history(self):
         history = self.viewer.history
-        available = [(link, button) for link, button in history.buttons if button.get_sensitive()]
+        available = [item for item in history.buttons if item[1].get_sensitive() and item[0].identifier in history.index]
         if available:
             link, button = next((item for item in available if item[0].label == '2019'), available[0])
             direction = (self.viewer.area.yaw, self.viewer.area.pitch, self.viewer.area.fov)

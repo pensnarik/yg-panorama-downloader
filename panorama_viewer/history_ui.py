@@ -5,11 +5,13 @@ gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk
 from .history import PanoramaHistory
 from .navigation import LocalPanoramaIndex
+from .queue_ui import QueueController
 
 
 class HistoryPanel:
     def __init__(self, viewer, box):
         self.viewer, self.index = viewer, {}
+        self.queue = QueueController(viewer)
         self.rows = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         box.append(self.rows)
         self.buttons = []
@@ -38,17 +40,23 @@ class HistoryPanel:
         selected = link.identifier == current
         available = link.identifier in self.index
         button = Gtk.Button(label=link.label, hexpand=True)
-        button.set_sensitive(available and not selected)
-        if selected:
-            button.add_css_class('panorama-current-year')
-        button.set_tooltip_text('Текущая панорама' if selected else 'Открыть эту дату' if available else 'Панорама не скачана')
+        button.set_sensitive(not selected)
+        self._style(button, selected, available)
+        button.set_tooltip_text('Текущая панорама' if selected else 'Открыть эту дату' if available else 'Скачать панораму за эту дату')
         button.connect('clicked', self._open, link.identifier)
         return button
+
+    @staticmethod
+    def _style(button, selected, available):
+        if selected:
+            button.add_css_class('panorama-current-year')
+        elif not available:
+            button.add_css_class('panorama-missing-year')
 
     def _open(self, button, identifier):
         path = self.index.get(identifier)
         if path is None:
-            return
+            return self.queue.submit(button, identifier)
         area = self.viewer.area
         direction = area.yaw, area.pitch, area.fov
         self.viewer.open_path(path)
