@@ -8,6 +8,7 @@ import psycopg
 import requests
 from .logging import DownloadLog
 from .queue import DownloadQueue
+from .process_error import ProcessFailure
 from .remote_metadata import RemoteMetadata
 
 
@@ -76,7 +77,7 @@ class QueueWorker:
     def _message(self, error):
         if isinstance(error, subprocess.CalledProcessError):
             self.monitor._report_failure(error)
-            return 'Ошибка скачивания или склейки; подробности в логе загрузчика.'
+            return ProcessFailure.describe(error)
         if isinstance(error, requests.HTTPError):
             return f'API метаданных: HTTP {error.response.status_code}'
         if isinstance(error, requests.RequestException):
